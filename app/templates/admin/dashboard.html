@@ -1,117 +1,117 @@
-{% extends \"base.html\" %}
+{% extends "base.html" %}
 
 {% block title %}管理面板{% endblock %}
 
 {% block content %}
-<div class=\"d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom\">
-    <h1 class=\"h2\">管理面板</h1>
-    <div class=\"btn-toolbar mb-2 mb-md-0\">
-        <div class=\"btn-group me-2\">
-            <button type=\"button\" class=\"btn btn-sm btn-outline-secondary\" onclick=\"refreshData()\">
-                <i class=\"fas fa-sync-alt\"></i> 刷新数据
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">管理面板</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="refreshData()">
+                <i class="fas fa-sync-alt"></i> 刷新数据
             </button>
         </div>
     </div>
 </div>
 
 <!-- 系统统计卡片 -->
-<div class=\"row mb-4\">
-    <div class=\"col-xl-2 col-md-6 mb-4\">
-        <div class=\"card border-left-primary shadow h-100 py-2\">
-            <div class=\"card-body\">
-                <div class=\"row no-gutters align-items-center\">
-                    <div class=\"col mr-2\">
-                        <div class=\"text-xs font-weight-bold text-primary text-uppercase mb-1\">总用户数</div>
-                        <div class=\"h5 mb-0 font-weight-bold text-gray-800\">{{ system_stats.total_users }}</div>
+<div class="row mb-4">
+    <div class="col-xl-2 col-md-6 mb-4">
+        <div class="card border-left-primary shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">总用户数</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ system_stats.total_users }}</div>
                     </div>
-                    <div class=\"col-auto\">
-                        <i class=\"fas fa-users fa-2x text-gray-300\"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class=\"col-xl-2 col-md-6 mb-4\">
-        <div class=\"card border-left-success shadow h-100 py-2\">
-            <div class=\"card-body\">
-                <div class=\"row no-gutters align-items-center\">
-                    <div class=\"col mr-2\">
-                        <div class=\"text-xs font-weight-bold text-success text-uppercase mb-1\">总任务数</div>
-                        <div class=\"h5 mb-0 font-weight-bold text-gray-800\">{{ system_stats.total_tasks }}</div>
-                    </div>
-                    <div class=\"col-auto\">
-                        <i class=\"fas fa-tasks fa-2x text-gray-300\"></i>
+                    <div class="col-auto">
+                        <i class="fas fa-users fa-2x text-gray-300"></i>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class=\"col-xl-2 col-md-6 mb-4\">
-        <div class=\"card border-left-info shadow h-100 py-2\">
-            <div class=\"card-body\">
-                <div class=\"row no-gutters align-items-center\">
-                    <div class=\"col mr-2\">
-                        <div class=\"text-xs font-weight-bold text-info text-uppercase mb-1\">运行中任务</div>
-                        <div class=\"h5 mb-0 font-weight-bold text-gray-800\" id=\"runningTasks\">{{ system_stats.running_tasks }}</div>
+    <div class="col-xl-2 col-md-6 mb-4">
+        <div class="card border-left-success shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">总任务数</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ system_stats.total_tasks }}</div>
                     </div>
-                    <div class=\"col-auto\">
-                        <i class=\"fas fa-play fa-2x text-gray-300\"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class=\"col-xl-2 col-md-6 mb-4\">
-        <div class=\"card border-left-warning shadow h-100 py-2\">
-            <div class=\"card-body\">
-                <div class=\"row no-gutters align-items-center\">
-                    <div class=\"col mr-2\">
-                        <div class=\"text-xs font-weight-bold text-warning text-uppercase mb-1\">总文件数</div>
-                        <div class=\"h5 mb-0 font-weight-bold text-gray-800\">{{ system_stats.total_files }}</div>
-                    </div>
-                    <div class=\"col-auto\">
-                        <i class=\"fas fa-file-alt fa-2x text-gray-300\"></i>
+                    <div class="col-auto">
+                        <i class="fas fa-tasks fa-2x text-gray-300"></i>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class=\"col-xl-2 col-md-6 mb-4\">
-        <div class=\"card border-left-danger shadow h-100 py-2\">
-            <div class=\"card-body\">
-                <div class=\"row no-gutters align-items-center\">
-                    <div class=\"col mr-2\">
-                        <div class=\"text-xs font-weight-bold text-danger text-uppercase mb-1\">调度器状态</div>
-                        <div class=\"h6 mb-0 font-weight-bold\" id=\"schedulerStatus\">
+    <div class="col-xl-2 col-md-6 mb-4">
+        <div class="card border-left-info shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">运行中任务</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="runningTasks">{{ system_stats.running_tasks }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-play fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-2 col-md-6 mb-4">
+        <div class="card border-left-warning shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">总文件数</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ system_stats.total_files }}</div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-file-alt fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-2 col-md-6 mb-4">
+        <div class="card border-left-danger shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">调度器状态</div>
+                        <div class="h6 mb-0 font-weight-bold" id="schedulerStatus">
                             {% if system_stats.scheduler_running %}
-                                <span class=\"text-success\">运行中</span>
+                                <span class="text-success">运行中</span>
                             {% else %}
-                                <span class=\"text-danger\">已停止</span>
+                                <span class="text-danger">已停止</span>
                             {% endif %}
                         </div>
                     </div>
-                    <div class=\"col-auto\">
-                        <i class=\"fas fa-cogs fa-2x text-gray-300\"></i>
+                    <div class="col-auto">
+                        <i class="fas fa-cogs fa-2x text-gray-300"></i>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class=\"col-xl-2 col-md-6 mb-4\">
-        <div class=\"card border-left-secondary shadow h-100 py-2\">
-            <div class=\"card-body\">
-                <div class=\"row no-gutters align-items-center\">
-                    <div class=\"col mr-2\">
-                        <div class=\"text-xs font-weight-bold text-secondary text-uppercase mb-1\">活跃作业</div>
-                        <div class=\"h5 mb-0 font-weight-bold text-gray-800\" id=\"activeJobs\">{{ system_stats.active_jobs }}</div>
+    <div class="col-xl-2 col-md-6 mb-4">
+        <div class="card border-left-secondary shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-secondary text-uppercase mb-1">活跃作业</div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800" id="activeJobs">{{ system_stats.active_jobs }}</div>
                     </div>
-                    <div class=\"col-auto\">
-                        <i class=\"fas fa-clock fa-2x text-gray-300\"></i>
+                    <div class="col-auto">
+                        <i class="fas fa-clock fa-2x text-gray-300"></i>
                     </div>
                 </div>
             </div>
@@ -120,18 +120,18 @@
 </div>
 
 <!-- 数据展示区域 -->
-<div class=\"row\">
+<div class="row">
     <!-- 最近活跃用户 -->
-    <div class=\"col-lg-6 mb-4\">
-        <div class=\"card shadow\">
-            <div class=\"card-header py-3 d-flex flex-row align-items-center justify-content-between\">
-                <h6 class=\"m-0 font-weight-bold text-primary\">最近活跃用户</h6>
-                <a href=\"{{ url_for('admin.users') }}\" class=\"btn btn-sm btn-primary\">查看全部</a>
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">最近活跃用户</h6>
+                <a href="{{ url_for('admin.users') }}" class="btn btn-sm btn-primary">查看全部</a>
             </div>
-            <div class=\"card-body\">
+            <div class="card-body">
                 {% if recent_users %}
-                    <div class=\"table-responsive\">
-                        <table class=\"table table-sm\">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
                             <thead>
                                 <tr>
                                     <th>用户名</th>
@@ -143,11 +143,11 @@
                                 {% for user in recent_users %}
                                 <tr>
                                     <td>
-                                        <a href=\"{{ url_for('admin.user_detail', user_id=user.id) }}\" class=\"text-decoration-none\">
+                                        <a href="{{ url_for('admin.user_detail', user_id=user.id) }}" class="text-decoration-none">
                                             {{ user.username }}
                                         </a>
                                         {% if user.is_admin %}
-                                            <span class=\"badge bg-warning\">管理员</span>
+                                            <span class="badge bg-warning">管理员</span>
                                         {% endif %}
                                     </td>
                                     <td>{{ user.email }}</td>
@@ -155,7 +155,7 @@
                                         {% if user.last_login %}
                                             {{ user.last_login.strftime('%m-%d %H:%M') }}
                                         {% else %}
-                                            <span class=\"text-muted\">从未登录</span>
+                                            <span class="text-muted">从未登录</span>
                                         {% endif %}
                                     </td>
                                 </tr>
@@ -164,42 +164,42 @@
                         </table>
                     </div>
                 {% else %}
-                    <p class=\"text-muted text-center\">暂无活跃用户</p>
+                    <p class="text-muted text-center">暂无活跃用户</p>
                 {% endif %}
             </div>
         </div>
     </div>
 
     <!-- 运行中的任务 -->
-    <div class=\"col-lg-6 mb-4\">
-        <div class=\"card shadow\">
-            <div class=\"card-header py-3 d-flex flex-row align-items-center justify-content-between\">
-                <h6 class=\"m-0 font-weight-bold text-primary\">运行中的任务</h6>
-                <a href=\"{{ url_for('admin.tasks') }}\" class=\"btn btn-sm btn-primary\">查看全部</a>
+    <div class="col-lg-6 mb-4">
+        <div class="card shadow">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">运行中的任务</h6>
+                <a href="{{ url_for('admin.tasks') }}" class="btn btn-sm btn-primary">查看全部</a>
             </div>
-            <div class=\"card-body\">
+            <div class="card-body">
                 {% if active_tasks %}
                     {% for task in active_tasks %}
-                    <div class=\"d-flex align-items-center justify-content-between mb-3\">
-                        <div class=\"flex-grow-1\">
-                            <h6 class=\"mb-1\">{{ task.task_name }}</h6>
-                            <small class=\"text-muted\">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">{{ task.task_name }}</h6>
+                            <small class="text-muted">
                                 用户: {{ task.user.username }} | 
                                 进度: {{ task.get_progress_percentage() }}%
                             </small>
-                            <div class=\"progress mt-1\" style=\"height: 5px;\">
-                                <div class=\"progress-bar\" role=\"progressbar\" 
-                                     style=\"width: {{ task.get_progress_percentage() }}%\"></div>
+                            <div class="progress mt-1" style="height: 5px;">
+                                <div class="progress-bar" role="progressbar" 
+                                     style="width: {{ task.get_progress_percentage() }}%"></div>
                             </div>
                         </div>
-                        <div class=\"ms-3\">
-                            <span class=\"badge bg-success\">运行中</span>
+                        <div class="ms-3">
+                            <span class="badge bg-success">运行中</span>
                         </div>
                     </div>
                     {% if not loop.last %}<hr>{% endif %}
                     {% endfor %}
                 {% else %}
-                    <p class=\"text-muted text-center\">暂无运行中的任务</p>
+                    <p class="text-muted text-center">暂无运行中的任务</p>
                 {% endif %}
             </div>
         </div>
@@ -207,26 +207,26 @@
 </div>
 
 <!-- 调度器状态详情 -->
-<div class=\"row\">
-    <div class=\"col-12 mb-4\">
-        <div class=\"card shadow\">
-            <div class=\"card-header py-3\">
-                <h6 class=\"m-0 font-weight-bold text-primary\">调度器状态详情</h6>
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card shadow">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">调度器状态详情</h6>
             </div>
-            <div class=\"card-body\">
-                <div class=\"row\">
-                    <div class=\"col-md-6\">
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
                         <p><strong>运行状态:</strong> 
-                            <span class=\"badge {{ 'bg-success' if scheduler_status.running else 'bg-danger' }}\">
+                            <span class="badge {{ 'bg-success' if scheduler_status.running else 'bg-danger' }}">
                                 {{ '正在运行' if scheduler_status.running else '已停止' }}
                             </span>
                         </p>
                         <p><strong>活跃作业数:</strong> {{ scheduler_status.jobs_count }}</p>
                     </div>
-                    <div class=\"col-md-6\">
+                    <div class="col-md-6">
                         {% if scheduler_status.jobs %}
                         <h6>当前作业:</h6>
-                        <ul class=\"list-unstyled\">
+                        <ul class="list-unstyled">
                             {% for job in scheduler_status.jobs %}
                             <li>
                                 <small>
@@ -262,16 +262,16 @@
 <script>
 // 实时更新系统状态
 function refreshData() {
-    $.get('{{ url_for(\"admin.api_system_status\") }}')
+    $.get('{{ url_for("admin.api_system_status") }}')
         .done(function(data) {
             $('#runningTasks').text(data.task_stats.running);
             $('#activeJobs').text(data.active_jobs);
             
             const schedulerStatus = $('#schedulerStatus');
             if (data.scheduler_running) {
-                schedulerStatus.html('<span class=\"text-success\">运行中</span>');
+                schedulerStatus.html('<span class="text-success">运行中</span>');
             } else {
-                schedulerStatus.html('<span class=\"text-danger\">已停止</span>');
+                schedulerStatus.html('<span class="text-danger">已停止</span>');
             }
         })
         .fail(function() {

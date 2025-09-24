@@ -4,6 +4,10 @@
 """
 import os
 
+# 加载env
+from dotenv import load_dotenv
+load_dotenv()
+
 class Config:
     """
     [基础配置类]
@@ -20,7 +24,7 @@ class Config:
     
     SQLALCHEMY_DATABASE_URI = f'mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    
+    print(SQLALCHEMY_DATABASE_URI)
     # [文件上传配置]
     UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'app', 'static', 'uploads')
     MAX_CONTENT_LENGTH = 100 * 1024 * 1024  # 100MB

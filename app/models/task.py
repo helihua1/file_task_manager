@@ -3,9 +3,7 @@
 管理用户创建的定时任务信息和执行状态
 """
 from datetime import datetime
-from flask_sqlalchemy import SQLAlchemy
-
-db = SQLAlchemy()
+from app import db
 
 class Task(db.Model):
     """

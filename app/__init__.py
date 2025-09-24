@@ -7,8 +7,25 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from config import config
+'''
+# 1. 启动应用时
+python run.py
 
+# 2. run.py 中的代码
+from app import create_app  # 这里会触发 app/__init__.py 的执行
+
+# 3. 当执行 from app import create_app 时，Python会：
+#    - 加载 app/__init__.py 文件
+#    - 执行文件中的代码，包括：
+#      - import os
+#      - from flask import Flask  
+#      - from flask_sqlalchemy import SQLAlchemy
+#      - db = SQLAlchemy()  # ← 这里被执行！
+#      - login_manager = LoginManager()
+#      - def create_app(): ...
+'''
 # [全局变量初始化]
+# db = SQLAlchemy() 这行代码的执行时机不是在所有代码之前，而是在app模块被第一次导入时。
 db = SQLAlchemy()
 login_manager = LoginManager()
 
@@ -71,10 +88,12 @@ def create_app(config_name=None):
     
     # [创建数据库表]
     with app.app_context():
+        # 导入所有模型以确保它们被注册
+        from app.models import User, File, Task, TaskExecution
+        
         db.create_all()
         
         # [创建默认管理员账户]
-        from app.models.user import User
         admin_user = User.query.filter_by(username='admin').first()
         if not admin_user:
             admin_user = User(

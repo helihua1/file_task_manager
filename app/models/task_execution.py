@@ -3,9 +3,7 @@
 记录每次任务执行的详细信息和结果
 """
 from datetime import datetime
-from flask_sqlalchemy import SQLAlchemy
-
-db = SQLAlchemy()
+from app import db
 
 class TaskExecution(db.Model):
     """
