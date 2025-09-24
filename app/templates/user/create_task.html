@@ -1,0 +1,171 @@
+{% extends \"base.html\" %}
+
+{% block title %}创建任务{% endblock %}
+
+{% block content %}
+<div class=\"d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom\">
+    <h1 class=\"h2\">创建新任务</h1>
+    <a href=\"{{ url_for('user.task_list') }}\" class=\"btn btn-outline-secondary\">
+        <i class=\"fas fa-arrow-left me-1\"></i>返回任务列表
+    </a>
+</div>
+
+<div class=\"row justify-content-center\">
+    <div class=\"col-lg-8\">
+        <div class=\"card\">
+            <div class=\"card-header\">
+                <h5 class=\"mb-0\">
+                    <i class=\"fas fa-plus me-2\"></i>任务配置
+                </h5>
+            </div>
+            <div class=\"card-body\">
+                <form method=\"POST\" id=\"taskForm\">
+                    <div class=\"row\">
+                        <div class=\"col-md-6\">
+                            <div class=\"mb-3\">
+                                <label for=\"task_name\" class=\"form-label\">任务名称 <span class=\"text-danger\">*</span></label>
+                                <input type=\"text\" class=\"form-control\" id=\"task_name\" name=\"task_name\" required 
+                                       placeholder=\"例如：数据同步任务\">
+                            </div>
+                        </div>
+                        <div class=\"col-md-6\">
+                            <div class=\"mb-3\">
+                                <label for=\"execution_method\" class=\"form-label\">执行方法</label>
+                                <select class=\"form-select\" id=\"execution_method\" name=\"execution_method\">
+                                    <option value=\"a_method\" selected>A方法（默认）</option>
+                                    <!-- 可以在这里添加更多执行方法 -->
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class=\"mb-3\">
+                        <label for=\"target_url\" class=\"form-label\">目标网站URL <span class=\"text-danger\">*</span></label>
+                        <input type=\"url\" class=\"form-control\" id=\"target_url\" name=\"target_url\" required 
+                               placeholder=\"https://example.com/api/upload\">
+                        <div class=\"form-text\">
+                            <i class=\"fas fa-info-circle me-1\"></i>
+                            文件内容将发送到此URL
+                        </div>
+                    </div>
+                    
+                    <div class=\"row\">
+                        <div class=\"col-md-4\">
+                            <div class=\"mb-3\">
+                                <label for=\"interval_seconds\" class=\"form-label\">执行间隔（秒） <span class=\"text-danger\">*</span></label>
+                                <input type=\"number\" class=\"form-control\" id=\"interval_seconds\" name=\"interval_seconds\" 
+                                       min=\"1\" value=\"60\" required>
+                                <div class=\"form-text\">每次执行的间隔时间</div>
+                            </div>
+                        </div>
+                        <div class=\"col-md-4\">
+                            <div class=\"mb-3\">
+                                <label for=\"start_time\" class=\"form-label\">开始时间 <span class=\"text-danger\">*</span></label>
+                                <input type=\"datetime-local\" class=\"form-control\" id=\"start_time\" name=\"start_time\" required>
+                            </div>
+                        </div>
+                        <div class=\"col-md-4\">
+                            <div class=\"mb-3\">
+                                <label for=\"end_time\" class=\"form-label\">结束时间（可选）</label>
+                                <input type=\"datetime-local\" class=\"form-control\" id=\"end_time\" name=\"end_time\">
+                                <div class=\"form-text\">留空表示无限期执行</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class=\"mb-4\">
+                        <div class=\"alert alert-info\" role=\"alert\">
+                            <h6 class=\"alert-heading\">
+                                <i class=\"fas fa-info-circle me-2\"></i>任务说明
+                            </h6>
+                            <ul class=\"mb-0\">
+                                <li>任务将按照设定的时间间隔自动执行</li>
+                                <li>每次执行会选择一个未处理的文件</li>
+                                <li>文件内容会通过HTTP POST请求发送到目标URL</li>
+                                <li>执行成功的文件会被移动到"已执行"文件夹</li>
+                                <li>所有文件执行完毕后任务自动完成</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class=\"d-flex justify-content-between\">
+                        <button type=\"button\" class=\"btn btn-secondary\" onclick=\"resetForm()\">
+                            <i class=\"fas fa-undo me-1\"></i>重置表单
+                        </button>
+                        <button type=\"submit\" class=\"btn btn-primary\" id=\"submitBtn\">
+                            <i class=\"fas fa-save me-1\"></i>创建任务
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 设置默认开始时间为当前时间
+window.addEventListener('load', function() {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    document.getElementById('start_time').value = now.toISOString().slice(0, 16);
+});
+
+// 表单验证
+document.getElementById('taskForm').addEventListener('submit', function(e) {
+    const startTime = new Date(document.getElementById('start_time').value);
+    const endTime = document.getElementById('end_time').value;
+    const submitBtn = document.getElementById('submitBtn');
+    
+    // 检查开始时间
+    if (startTime < new Date()) {
+        alert('开始时间不能早于当前时间');
+        e.preventDefault();
+        return;
+    }
+    
+    // 检查结束时间
+    if (endTime) {
+        const endDateTime = new Date(endTime);
+        if (endDateTime <= startTime) {
+            alert('结束时间必须晚于开始时间');
+            e.preventDefault();
+            return;
+        }
+    }
+    
+    // 防止重复提交
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class=\"fas fa-spinner fa-spin me-1\"></i>创建中...';
+});
+
+function resetForm() {
+    document.getElementById('taskForm').reset();
+    
+    // 重新设置默认开始时间
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    document.getElementById('start_time').value = now.toISOString().slice(0, 16);
+}
+
+// 执行间隔建议
+document.getElementById('interval_seconds').addEventListener('change', function(e) {
+    const value = parseInt(e.target.value);
+    const suggestions = {
+        1: '每秒执行（高频率）',
+        10: '每10秒执行',
+        30: '每30秒执行',
+        60: '每分钟执行（推荐）',
+        300: '每5分钟执行',
+        600: '每10分钟执行',
+        3600: '每小时执行'
+    };
+    
+    const suggestion = suggestions[value];
+    if (suggestion) {
+        e.target.setAttribute('title', suggestion);
+    }
+});
+</script>
+{% endblock %}

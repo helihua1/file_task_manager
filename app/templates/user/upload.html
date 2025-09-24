@@ -1,0 +1,141 @@
+{% extends \"base.html\" %}
+
+{% block title %}文件上传{% endblock %}
+
+{% block content %}
+<div class=\"d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom\">
+    <h1 class=\"h2\">文件上传</h1>
+</div>
+
+<div class=\"row justify-content-center\">
+    <div class=\"col-lg-8\">
+        <div class=\"card\">
+            <div class=\"card-header\">
+                <h5 class=\"mb-0\">
+                    <i class=\"fas fa-upload me-2\"></i>批量上传TXT文件
+                </h5>
+            </div>
+            <div class=\"card-body\">
+                <form method=\"POST\" enctype=\"multipart/form-data\" id=\"uploadForm\">
+                    <div class=\"mb-3\">
+                        <label for=\"files\" class=\"form-label\">选择文件</label>
+                        <input type=\"file\" class=\"form-control\" id=\"files\" name=\"files\" multiple accept=\".txt\" required>
+                        <div class=\"form-text\">
+                            <i class=\"fas fa-info-circle me-1\"></i>
+                            只支持TXT格式文件，可以选择多个文件同时上传
+                        </div>
+                    </div>
+                    
+                    <div class=\"mb-3\">
+                        <div id=\"fileList\" class=\"border rounded p-3 bg-light\" style=\"min-height: 150px; display: none;\">
+                            <h6>选中的文件：</h6>
+                            <ul id=\"selectedFiles\" class=\"list-unstyled mb-0\"></ul>
+                        </div>
+                    </div>
+                    
+                    <div class=\"d-flex justify-content-between\">
+                        <button type=\"button\" class=\"btn btn-secondary\" onclick=\"clearFiles()\">
+                            <i class=\"fas fa-times me-1\"></i>清空选择
+                        </button>
+                        <button type=\"submit\" class=\"btn btn-primary\" id=\"uploadBtn\" disabled>
+                            <i class=\"fas fa-upload me-1\"></i>上传文件
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 上传说明 -->
+        <div class=\"card mt-4\">
+            <div class=\"card-header\">
+                <h6 class=\"mb-0\">
+                    <i class=\"fas fa-question-circle me-2\"></i>上传说明
+                </h6>
+            </div>
+            <div class=\"card-body\">
+                <ul class=\"mb-0\">
+                    <li>仅支持TXT格式的文本文件</li>
+                    <li>单个文件大小不超过10MB</li>
+                    <li>可以同时选择多个文件进行批量上传</li>
+                    <li>上传的文件将用于后续的任务执行</li>
+                    <li>文件上传后会自动保存到您的个人文件夹中</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('files').addEventListener('change', function(e) {
+    const files = e.target.files;
+    const fileList = document.getElementById('fileList');
+    const selectedFiles = document.getElementById('selectedFiles');
+    const uploadBtn = document.getElementById('uploadBtn');
+    
+    if (files.length > 0) {
+        selectedFiles.innerHTML = '';
+        
+        Array.from(files).forEach(function(file, index) {
+            const li = document.createElement('li');
+            li.className = 'mb-1';
+            
+            let icon = 'fas fa-file-alt';
+            let badge = 'bg-success';
+            let text = '可上传';
+            
+            if (!file.name.toLowerCase().endsWith('.txt')) {
+                icon = 'fas fa-exclamation-triangle';
+                badge = 'bg-danger';
+                text = '格式错误';
+            } else if (file.size > 10 * 1024 * 1024) {
+                icon = 'fas fa-exclamation-triangle';
+                badge = 'bg-warning';
+                text = '文件过大';
+            }
+            
+            li.innerHTML = `
+                <div class=\"d-flex justify-content-between align-items-center\">
+                    <span>
+                        <i class=\"${icon} me-2\"></i>
+                        ${file.name}
+                        <small class=\"text-muted\">(${formatFileSize(file.size)})</small>
+                    </span>
+                    <span class=\"badge ${badge}\">${text}</span>
+                </div>
+            `;
+            
+            selectedFiles.appendChild(li);
+        });
+        
+        fileList.style.display = 'block';
+        uploadBtn.disabled = false;
+    } else {
+        fileList.style.display = 'none';
+        uploadBtn.disabled = true;
+    }
+});
+
+function clearFiles() {
+    document.getElementById('files').value = '';
+    document.getElementById('fileList').style.display = 'none';
+    document.getElementById('uploadBtn').disabled = true;
+}
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// 防止表单重复提交
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+    const uploadBtn = document.getElementById('uploadBtn');
+    uploadBtn.disabled = true;
+    uploadBtn.innerHTML = '<i class=\"fas fa-spinner fa-spin me-1\"></i>上传中...';
+});
+</script>
+{% endblock %}

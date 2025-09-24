@@ -1,0 +1,188 @@
+{% extends \"base.html\" %}
+
+{% block title %}用户仪表板{% endblock %}
+
+{% block content %}
+<div class=\"d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom\">
+    <h1 class=\"h2\">仪表板</h1>
+    <div class=\"btn-toolbar mb-2 mb-md-0\">
+        <div class=\"btn-group me-2\">
+            <a href=\"{{ url_for('user.upload_files') }}\" class=\"btn btn-sm btn-outline-secondary\">
+                <i class=\"fas fa-upload\"></i> 上传文件
+            </a>
+            <a href=\"{{ url_for('user.create_task') }}\" class=\"btn btn-sm btn-outline-secondary\">
+                <i class=\"fas fa-plus\"></i> 创建任务
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- 统计卡片 -->
+<div class=\"row mb-4\">
+    <div class=\"col-xl-3 col-md-6 mb-4\">
+        <div class=\"card border-left-primary shadow h-100 py-2\">
+            <div class=\"card-body\">
+                <div class=\"row no-gutters align-items-center\">
+                    <div class=\"col mr-2\">
+                        <div class=\"text-xs font-weight-bold text-primary text-uppercase mb-1\">
+                            总文件数
+                        </div>
+                        <div class=\"h5 mb-0 font-weight-bold text-gray-800\">{{ file_stats.total_files }}</div>
+                    </div>
+                    <div class=\"col-auto\">
+                        <i class=\"fas fa-file-alt fa-2x text-gray-300\"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class=\"col-xl-3 col-md-6 mb-4\">
+        <div class=\"card border-left-success shadow h-100 py-2\">
+            <div class=\"card-body\">
+                <div class=\"row no-gutters align-items-center\">
+                    <div class=\"col mr-2\">
+                        <div class=\"text-xs font-weight-bold text-success text-uppercase mb-1\">
+                            已执行文件
+                        </div>
+                        <div class=\"h5 mb-0 font-weight-bold text-gray-800\">{{ file_stats.executed_files }}</div>
+                    </div>
+                    <div class=\"col-auto\">
+                        <i class=\"fas fa-check-circle fa-2x text-gray-300\"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class=\"col-xl-3 col-md-6 mb-4\">
+        <div class=\"card border-left-info shadow h-100 py-2\">
+            <div class=\"card-body\">
+                <div class=\"row no-gutters align-items-center\">
+                    <div class=\"col mr-2\">
+                        <div class=\"text-xs font-weight-bold text-info text-uppercase mb-1\">
+                            待执行文件
+                        </div>
+                        <div class=\"h5 mb-0 font-weight-bold text-gray-800\">{{ file_stats.pending_files }}</div>
+                    </div>
+                    <div class=\"col-auto\">
+                        <i class=\"fas fa-clock fa-2x text-gray-300\"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class=\"col-xl-3 col-md-6 mb-4\">
+        <div class=\"card border-left-warning shadow h-100 py-2\">
+            <div class=\"card-body\">
+                <div class=\"row no-gutters align-items-center\">
+                    <div class=\"col mr-2\">
+                        <div class=\"text-xs font-weight-bold text-warning text-uppercase mb-1\">
+                            运行中任务
+                        </div>
+                        <div class=\"h5 mb-0 font-weight-bold text-gray-800\">{{ task_stats.running_tasks }}</div>
+                    </div>
+                    <div class=\"col-auto\">
+                        <i class=\"fas fa-tasks fa-2x text-gray-300\"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 最近任务和文件 -->
+<div class=\"row\">
+    <!-- 最近任务 -->
+    <div class=\"col-lg-6 mb-4\">
+        <div class=\"card shadow\">
+            <div class=\"card-header py-3 d-flex flex-row align-items-center justify-content-between\">
+                <h6 class=\"m-0 font-weight-bold text-primary\">最近任务</h6>
+                <a href=\"{{ url_for('user.task_list') }}\" class=\"btn btn-sm btn-primary\">查看全部</a>
+            </div>
+            <div class=\"card-body\">
+                {% if recent_tasks %}
+                    {% for task in recent_tasks %}
+                    <div class=\"d-flex align-items-center justify-content-between mb-3\">
+                        <div class=\"flex-grow-1\">
+                            <h6 class=\"mb-1\">
+                                <a href=\"{{ url_for('user.task_detail', task_id=task.id) }}\" class=\"text-decoration-none\">
+                                    {{ task.task_name }}
+                                </a>
+                            </h6>
+                            <small class=\"text-muted\">{{ task.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        </div>
+                        <div class=\"ms-3\">
+                            {% if task.status == 'running' %}
+                                <span class=\"badge bg-success\">运行中</span>
+                            {% elif task.status == 'pending' %}
+                                <span class=\"badge bg-secondary\">待启动</span>
+                            {% elif task.status == 'paused' %}
+                                <span class=\"badge bg-warning\">已暂停</span>
+                            {% elif task.status == 'completed' %}
+                                <span class=\"badge bg-primary\">已完成</span>
+                            {% elif task.status == 'failed' %}
+                                <span class=\"badge bg-danger\">失败</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if not loop.last %}<hr>{% endif %}
+                    {% endfor %}
+                {% else %}
+                    <p class=\"text-muted text-center\">暂无任务</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 最近文件 -->
+    <div class=\"col-lg-6 mb-4\">
+        <div class=\"card shadow\">
+            <div class=\"card-header py-3 d-flex flex-row align-items-center justify-content-between\">
+                <h6 class=\"m-0 font-weight-bold text-primary\">最近上传文件</h6>
+                <a href=\"{{ url_for('user.file_list') }}\" class=\"btn btn-sm btn-primary\">查看全部</a>
+            </div>
+            <div class=\"card-body\">
+                {% if recent_files %}
+                    {% for file in recent_files %}
+                    <div class=\"d-flex align-items-center justify-content-between mb-2\">
+                        <div class=\"flex-grow-1\">
+                            <span class=\"fw-bold\">{{ file.original_filename }}</span>
+                            <small class=\"text-muted d-block\">{{ file.upload_time.strftime('%Y-%m-%d %H:%M') }}</small>
+                        </div>
+                        <div class=\"ms-3\">
+                            {% if file.is_executed %}
+                                <span class=\"badge bg-success\">已执行</span>
+                            {% else %}
+                                <span class=\"badge bg-secondary\">待执行</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if not loop.last %}<hr>{% endif %}
+                    {% endfor %}
+                {% else %}
+                    <p class=\"text-muted text-center\">暂无文件</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.border-left-primary {
+    border-left: 0.25rem solid #4e73df !important;
+}
+.border-left-success {
+    border-left: 0.25rem solid #1cc88a !important;
+}
+.border-left-info {
+    border-left: 0.25rem solid #36b9cc !important;
+}
+.border-left-warning {
+    border-left: 0.25rem solid #f6c23e !important;
+}
+</style>
+{% endblock %}
