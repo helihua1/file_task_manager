@@ -38,7 +38,9 @@ class Task(db.Model):
     
     # [1-3.1.5] 关联关系
     task_executions = db.relationship('TaskExecution', backref='task', lazy='dynamic',
-                                    cascade='all, delete-orphan', comment='任务执行记录')
+                                    cascade='all, delete-orphan'
+                                      )
+                                      # , comment='任务执行记录')
     
     def __init__(self, user_id, task_name, target_url, execution_method, 
                  interval_seconds, start_time, end_time=None):

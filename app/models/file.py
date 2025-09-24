@@ -30,7 +30,9 @@ class File(db.Model):
     
     # [1-2.1.3] 关联关系
     task_executions = db.relationship('TaskExecution', backref='file', lazy='dynamic',
-                                    cascade='all, delete-orphan', comment='文件执行记录')
+                                    cascade='all, delete-orphan'
+                                      )
+                                      # , comment='文件执行记录')
     
     def __init__(self, user_id, filename, original_filename, file_path, file_size):
         """

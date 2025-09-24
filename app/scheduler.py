@@ -10,7 +10,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from app.models.task import Task
 from app.models.file import File
 from app.models.task_execution import TaskExecution
-from app.models import db
+from app import db
 
 # [4] 任务调度器初始化
 scheduler = BackgroundScheduler()
@@ -51,7 +51,7 @@ class TaskScheduler:
         # [4-1.4] 启动调度器
         if not self.scheduler.running:
             self.scheduler.start()
-            logger.info(\"任务调度器已启动\")
+            logger.info("任务调度器已启动")
         
         # [4-1.5] 应用关闭时停止调度器
         import atexit
@@ -77,13 +77,13 @@ class TaskScheduler:
             trigger=IntervalTrigger(seconds=task.interval_seconds),
             args=[task.id],
             id=job_id,
-            name=f\"Task: {task.task_name}\",
+            name=f"Task: {task.task_name}",
             start_date=task.start_time,
             end_date=task.end_time,
             replace_existing=True
         )
         
-        logger.info(f\"任务 {task.task_name} (ID: {task.id}) 已添加到调度器\")
+        logger.info(f"任务 {task.task_name} (ID: {task.id}) 已添加到调度器")
         return True
     
     def remove_task_job(self, task_id):
@@ -91,10 +91,10 @@ class TaskScheduler:
         [4-1.9] 从调度器移除任务
         暂停或停止任务时调用
         """
-        job_id = f\"task_{task_id}\"
+        job_id = f"task_{task_id}"
         if self.scheduler.get_job(job_id):
             self.scheduler.remove_job(job_id)
-            logger.info(f\"任务 (ID: {task_id}) 已从调度器移除\")
+            logger.info(f"任务 (ID: {task_id}) 已从调度器移除")
     
     def execute_task(self, task_id):
         """
@@ -115,7 +115,7 @@ class TaskScheduler:
                     # 没有更多文件可执行，完成任务
                     task.complete_task()
                     self.remove_task_job(task_id)
-                    logger.info(f\"任务 {task.task_name} 已完成，所有文件执行完毕\")
+                    logger.info(f"任务 {task.task_name} 已完成，所有文件执行完毕")
                     return
                 
                 # [4-2.3] 执行文件上传到目标网站
@@ -136,7 +136,7 @@ class TaskScheduler:
                         response_data=response_data
                     )
                     
-                    logger.info(f\"文件 {file_to_execute.original_filename} 执行成功\")
+                    logger.info(f"文件 {file_to_execute.original_filename} 执行成功")
                 else:
                     # [4-2.6] 执行失败处理
                     TaskExecution.create_failed_record(
@@ -145,10 +145,10 @@ class TaskScheduler:
                         error_message=error_message
                     )
                     
-                    logger.error(f\"文件 {file_to_execute.original_filename} 执行失败: {error_message}\")
+                    logger.error(f"文件 {file_to_execute.original_filename} 执行失败: {error_message}")
                 
             except Exception as e:
-                logger.error(f\"执行任务 {task_id} 时发生错误: {str(e)}\")
+                logger.error(f"执行任务 {task_id} 时发生错误: {str(e)}")
                 
                 # [4-2.7] 记录系统错误
                 try:
@@ -195,21 +195,21 @@ class TaskScheduler:
                 if response.status_code == 200:
                     return True, response.text, None
                 else:
-                    error_msg = f\"HTTP {response.status_code}: {response.text}\"
+                    error_msg = f"HTTP {response.status_code}: {response.text}"
                     return False, None, error_msg
             
             else:
                 # 其他方法的实现
-                return False, None, f\"不支持的执行方法: {method}\"
+                return False, None, f"不支持的执行方法: {method}"
         
         except requests.exceptions.Timeout:
-            return False, None, \"请求超时\"
+            return False, None, "请求超时"
         except requests.exceptions.ConnectionError:
-            return False, None, \"连接错误\"
+            return False, None, "连接错误"
         except requests.exceptions.RequestException as e:
-            return False, None, f\"请求异常: {str(e)}\"
+            return False, None, f"请求异常: {str(e)}"
         except Exception as e:
-            return False, None, f\"执行错误: {str(e)}\"
+            return False, None, f"执行错误: {str(e)}"
     
     def start_all_running_tasks(self):
         """
@@ -222,11 +222,11 @@ class TaskScheduler:
             for task in running_tasks:
                 if task.can_execute():
                     self.add_task_job(task)
-                    logger.info(f\"恢复运行任务: {task.task_name}\")
+                    logger.info(f"恢复运行任务: {task.task_name}")
                 else:
                     # 任务已过期，标记为完成
                     task.complete_task()
-                    logger.info(f\"任务 {task.task_name} 已过期，标记为完成\")
+                    logger.info(f"任务 {task.task_name} 已过期，标记为完成")
     
     def get_scheduler_status(self):
         """

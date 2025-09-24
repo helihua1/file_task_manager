@@ -26,10 +26,12 @@ class User(UserMixin, db.Model):
     last_login = db.Column(db.DateTime, comment='最后登录时间')
     
     # [1-1.1.2] 关联关系定义
-    files = db.relationship('File', backref='user', lazy='dynamic', cascade='all, delete-orphan', 
-                           comment='用户上传的文件列表')
+    files = db.relationship('File', backref='user', lazy='dynamic', cascade='all, delete-orphan',
+                            )
+                           # comment='用户上传的文件列表')
     tasks = db.relationship('Task', backref='user', lazy='dynamic', cascade='all, delete-orphan',
-                           comment='用户创建的任务列表')
+                            )
+                           # comment='用户创建的任务列表')
     
     def __init__(self, username, email, password):
         """
