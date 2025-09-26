@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timedelta
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
 from flask_login import login_required, current_user
-from werkzeug.utils import secure_filename
+# from werkzeug.utils import secure_filename
 from app.models.user import User
 from app.models.file import File
 from app.models.task import Task
@@ -91,10 +91,13 @@ def upload_files():
             if file and allowed_file(file.filename):
                 try:
                     # [2-2.4] 生成安全的文件名
-                    original_filename = secure_filename(file.filename)
-                    file_extension = original_filename.rsplit('.', 1)[1].lower()
-                    unique_filename = f"{uuid.uuid4().hex}.{file_extension}"
-                    file_path = os.path.join(user_upload_dir, unique_filename)
+                    # original_filename = secure_filename(file.filename)
+                    # file_extension = original_filename.rsplit('.', 1)[1].lower()
+                    
+                    # unique_filename = f"{uuid.uuid4().hex}.{file_extension}"
+                    # file_path = os.path.join(user_upload_dir, unique_filename)
+                    original_filename = file.filename
+                    file_path = os.path.join(user_upload_dir, original_filename)
                     
                     # [2-2.5] 保存文件到磁盘
                     file.save(file_path)
@@ -103,8 +106,9 @@ def upload_files():
                     # [2-2.6] 保存文件信息到数据库
                     file_record = File(
                         user_id=current_user.id,
-                        filename=unique_filename,
+                        # filename=unique_filename,
                         original_filename=original_filename,
+                        filename=original_filename,
                         file_path=file_path,
                         file_size=file_size
                     )

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>文件列表</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; padding: 20px; }
+    .container { max-width: 1000px; margin: 0 auto; }
+    .toolbar { display: flex; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; }
+    .filter { display: flex; gap: 8px; align-items: center; }
+    table { width: 100%; border-collapse: collapse; background: #fff; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid #eee; text-align: left; }
+    th { background: #fafafa; font-weight: 600; }
+    .status { font-size: 12px; padding: 2px 6px; border-radius: 4px; display: inline-block; }
+    .status.done { background: #e6ffed; color: #067d3d; border: 1px solid #b7f5c7; }
+    .status.pending { background: #fff7e6; color: #8a5a00; border: 1px solid #ffe0a3; }
+    .actions { display: flex; gap: 8px; }
+    .btn { padding: 6px 10px; border: 1px solid #ddd; background: #f7f7f7; color: #333; border-radius: 4px; cursor: pointer; text-decoration: none; display: inline-block; }
+    .btn.primary { background: #1677ff; border-color: #1677ff; color: #fff; }
+    .btn.danger { background: #ff4d4f; border-color: #ff4d4f; color: #fff; }
+    .btn:disabled { opacity: .6; cursor: not-allowed; }
+    .pagination { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 16px; }
+    .page-link { padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; text-decoration: none; color: #1677ff; background: #fff; }
+    .page-link.active { background: #1677ff; color: #fff; border-color: #1677ff; }
+    .page-link.disabled { color: #aaa; border-color: #eee; pointer-events: none; background: #fafafa; }
+    .empty { padding: 24px; text-align: center; color: #666; background: #fff; border: 1px dashed #ddd; border-radius: 6px; }
+    .meta { color: #666; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="toolbar">
+      <h2 style="margin: 0;">文件列表</h2>
+      <div class="filter">
+        <form method="get" action="{{ url_for('user.file_list') }}">
+          <label for="status">状态筛选：</label>
+          <select id="status" name="status">
+            <option value="all" {% if status_filter == 'all' %}selected{% endif %}>全部</option>
+            <option value="executed" {% if status_filter == 'executed' %}selected{% endif %}>已执行</option>
+            <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>待执行</option>
+          </select>
+          <button class="btn primary" type="submit">应用筛选</button>
+          <a class="btn" href="{{ url_for('user.upload_files') }}">上传文件</a>
+        </form>
+      </div>
+    </div>
+
+    {% if files.items %}
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 40%;">文件名</th>
+            <th style="width: 15%;">大小</th>
+            <th style="width: 25%;">上传时间</th>
+            <th style="width: 10%;">状态</th>
+            <th style="width: 10%;">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in files.items %}
+            <tr>
+              <td title="{{ f.file_path }}">{{ f.filename }}</td>
+              <td>
+                {% if f.file_size is not none %}
+                  {% if f.file_size >= 1024 * 1024 %}
+                    {{ ('%.2f' % (f.file_size / (1024 * 1024))) }} MB
+                  {% elif f.file_size >= 1024 %}
+                    {{ ('%.2f' % (f.file_size / 1024)) }} KB
+                  {% else %}
+                    {{ f.file_size }} B
+                  {% endif %}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td>
+                {% if f.upload_time %}
+                  {{ f.upload_time.strftime('%Y-%m-%d %H:%M:%S') }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+              <td>
+                {% if f.is_executed %}
+                  <span class="status done">已执行</span>
+                {% else %}
+                  <span class="status pending">待执行</span>
+                {% endif %}
+              </td>
+              <td class="actions">
+                <form method="post" action="{{ url_for('user.delete_file', file_id=f.id) }}" onsubmit="return confirm('确认删除该文件吗？');">
+                  <button class="btn danger" type="submit">删除</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="toolbar" style="margin-top: 8px;">
+        <div class="meta">
+          第 {{ files.page }} / {{ files.pages }} 页，共 {{ files.total }} 条
+        </div>
+        <div class="pagination">
+          <a class="page-link {% if not files.has_prev %}disabled{% endif %}"
+             href="{% if files.has_prev %}{{ url_for('user.file_list', page=files.prev_num, status=status_filter) }}{% else %}#{% endif %}">
+            上一页
+          </a>
+
+          {# 中间页码（带省略号） #}
+          {% set last = 0 %}
+          {% for p in files.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
+            {% if p %}
+              <a class="page-link {% if p == files.page %}active{% endif %}"
+                 href="{{ url_for('user.file_list', page=p, status=status_filter) }}">{{ p }}</a>
+              {% set last = p %}
+            {% else %}
+              <span class="page-link disabled">...</span>
+            {% endif %}
+          {% endfor %}
+
+          <a class="page-link {% if not files.has_next %}disabled{% endif %}"
+             href="{% if files.has_next %}{{ url_for('user.file_list', page=files.next_num, status=status_filter) }}{% else %}#{% endif %}">
+            下一页
+          </a>
+        </div>
+      </div>
+    {% else %}
+      <div class="empty">
+        暂无文件。
+        <a class="btn" href="{{ url_for('user.upload_files') }}" style="margin-left:8px;">去上传</a>
+      </div>
+    {% endif %}
+  </div>
+</body>
+</html>

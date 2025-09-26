@@ -26,7 +26,8 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     print(SQLALCHEMY_DATABASE_URI)
     # [文件上传配置]
-    UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'app', 'static', 'uploads')
+    #UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'app', 'static', 'uploads')
+    UPLOAD_FOLDER = r'D:\python\auto_upload_claude\file_task_manager\file_task_manager\上传文件'
     MAX_CONTENT_LENGTH = 100 * 1024 * 1024  # 100MB
     ALLOWED_EXTENSIONS = {'txt'}
     
