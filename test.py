@@ -106,7 +106,7 @@ def login(update_context):
     base_url = update_context.base_url
     username = update_context.username
     password = update_context.password
-
+    
 
     login_url = f"{base_url}/ecmsadmin.php"
     # 初始header：浏览器 Headers
@@ -233,18 +233,32 @@ def upload(update_context):
         open_resp(r)
         time.sleep(sleeptime)
 
- 
+
+def get_menu(update_context):
+    session = update_context.session
+
+
+    zixun_page, zixun_page_url = login(update_context)
+    # 获取js文件中的内容，得到例如[('1', '|-资讯'), ('2', '|-疾病'), ('3', '|-中医'), ('4', '|-两性')]
+    js_result = get_js_fr_zixun_page(session, zixun_page, zixun_page_url)
+    print(js_result)
+    return js_result
 
 if __name__ == '__main__':
     class update_context:
-        def __init__(self,session,base_url,username,password,titles_and_texts,sleeptime,menu_value):
+        def __init__(self,session,suffix,root_url,username,password,titles_and_texts,sleeptime,menu_value):
             self.session = session
-            self.base_url = base_url
+            self.suffix = suffix
+            self.root_url = root_url
+
+            self.base_url = urljoin(self.root_url, self.suffix)
+            print(self.base_url)
             self.username = username
             self.password = password
             self.titles_and_texts = titles_and_texts
             self.sleeptime = sleeptime
             self.menu_value = menu_value
+            
 
     session = requests.Session()
     base_url = "http://lin.cqleshun.com/e/AcoyKcy7s9"
@@ -257,7 +271,9 @@ if __name__ == '__main__':
     }
     sleeptime = 3
     menu_value = "1"
-    upload_date = update_context(session,base_url,username,password,titles_and_texts,sleeptime,menu_value)
+    suffix = "e/AcoyKcy7s9"
+    root_url = "http://lin.cqleshun.com"
+    upload_date = update_context(session,suffix,root_url,username,password,titles_and_texts,sleeptime,menu_value)
     
     upload(upload_date)
 
