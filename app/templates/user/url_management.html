@@ -1,0 +1,143 @@
+﻿{% extends "base.html" %}
+
+{% block title %}添加URL列表数据{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">添加URL列表数据</h1>
+</div>
+
+<div class="row">
+    <!-- 左侧：已添加的URL列表 -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">已添加的URL列表</h5>
+            </div>
+            <div class="card-body">
+                <div id="url-list">
+                    {% if url_contexts %}
+                        <div class="list-group">
+                            {% for context in url_contexts %}
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <!-- 名称列，支持双击编辑 -->
+                                        <div class="mb-2">
+                                            <form method="POST" action="{{ url_for('user.update_url_context_name', context_id=context.id) }}" 
+                                                  style="display: inline;" class="d-inline-block">
+                                                <input type="text" 
+                                                       name="name" 
+                                                       value="{{ context.name or '未命名' }}" 
+                                                       class="form-control form-control-sm d-inline-block" 
+                                                       style="width: 150px; border: 1px solid #ddd; background: #f8f9fa;"
+                                                       onblur="this.form.submit()"
+                                                       onkeypress="if(event.key==='Enter'){this.form.submit(); return false;}"
+                                                       title="双击或按Enter保存">
+                                            </form>
+                                        </div>
+                                        <h6 class="mb-1">{{ context.root_url }} + {{ context.suffix }}</h6>
+                                        {% if context.menus %}
+                                            <div class="ms-2 mt-2">
+                                                {% for menu in context.menus %}
+                                                <span class="badge bg-secondary me-1">{{ menu.menu_text }}</span>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="ms-3">
+                                        <form method="POST" action="{{ url_for('user.delete_url_context', context_id=context.id) }}" 
+                                              onsubmit="return confirm('确定要删除这个URL上下文吗？此操作将同时删除所有关联的菜单数据，且无法恢复！')" 
+                                              style="display: inline;">
+                                            <button type="submit" class="btn btn-outline-danger btn-sm">
+                                                <i class="bi bi-trash"></i> 删除
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">暂无已添加的URL数据</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧：添加新URL -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">添加新URL</h5>
+            </div>
+            <div class="card-body">
+                <!-- 输入表单 -->
+                <form method="POST" action="{{ url_for('user.test_url_menu') }}">
+                    <div class="mb-3">
+                        <label for="root_url" class="form-label">域名 (root_url)</label>
+                        <input type="text" class="form-control" id="root_url" name="root_url" 
+                               placeholder="例如: http://example.com" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="suffix" class="form-label">后缀 (suffix)</label>
+                        <input type="text" class="form-control" id="suffix" name="suffix" 
+                               placeholder="例如: e/AcoyKcy7s9" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="username" class="form-label">用户名</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">密码</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">检索菜单</button>
+                </form>
+
+                <!-- 菜单结果显示区域 -->
+                {% if menu_data %}
+                <div class="mt-4">
+                    <h6>检索到的菜单项：</h6>
+                    <div class="border rounded p-3 bg-light">
+                        <div class="row">
+                            {% for menu_item in menu_data %}
+                            <div class="col-md-6 mb-2">
+                                <span class="badge bg-primary me-1">{{ menu_item[0] }}</span>
+                                <small>{{ menu_item[1] }}</small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <!-- 确认添加按钮 -->
+                    <form method="POST" action="{{ url_for('user.add_url_context') }}" class="mt-3">
+                        <input  name="root_url" value="{{ url_data.root_url }}" readonly>
+                        <input  name="suffix" value="{{ url_data.suffix }}" readonly>
+                        <input  name="username" value="{{ url_data.username }}" readonly>
+                        <input  name="password" value="{{ url_data.password }}" readonly>
+                        <button type="submit" class="btn btn-success">确认添加</button>
+                        <a href="{{ url_for('user.url_management') }}" class="btn btn-secondary ms-2">取消</a>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 消息提示 -->
+<div id="message-area" class="mt-3">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+</div>
+{% endblock %}

@@ -1,3 +1,4 @@
+from gzip import READ
 import re
 from urllib.parse import urljoin
 import time
@@ -101,9 +102,11 @@ def get_meta_jump_url(resp_post_session,login_url):
         redirect_url = urljoin(login_url, redirect_url)
 
     return redirect_url
-def login(update_context):
+def login_diguo(update_context):
+
     session = update_context.session
     base_url = update_context.base_url
+    print(base_url)
     username = update_context.username
     password = update_context.password
     
@@ -176,28 +179,25 @@ def login(update_context):
             print("从''增加信息''提取URL失败")
     else:
         print("未找到包含'增加信息'的TD标签")                
-def upload(update_context):
+def upload_before(update_context):
 
     session = update_context.session
     base_url = update_context.base_url
 
-    titles_and_texts = update_context.titles_and_texts
-    sleeptime = update_context.sleeptime
-    menu_value = update_context.menu_value
 
 
 
-    zixun_page,zixun_page_url = login(update_context)
+    zixun_page,zixun_page_url = login_diguo(update_context)
     #获取js文件中的内容，得到例如[('1', '|-资讯'), ('2', '|-疾病'), ('3', '|-中医'), ('4', '|-两性')]
     js_result = get_js_fr_zixun_page(session, zixun_page,zixun_page_url)
     print(js_result)
-
-
+    return zixun_page
+   
+def upload(session,zixun_page,base_url,menu_value,title,text):
     # 七，获取上传文章页面的url ，menu_value是指定的栏目
     upload_url = get_upload_writings_page_url(zixun_page,base_url,menu_value)
     upload_writing_page = session.get(upload_url)
     open_resp(upload_writing_page)
-
 
 
     '''
@@ -209,59 +209,54 @@ def upload(update_context):
     hidden_inputs = {tag['name']: tag.get('value', '')
                         for tag in soup.select("form input[type=hidden]")}
 
-    for title,text in titles_and_texts.items():
 
-        # 3. 构造文章数据
-        post_data = {
-            **hidden_inputs,  # 必须带上
-            "checked": "1",
-            "title": title,
-            "newstext": text,
-            "classid": menu_value,
-            "ecmscheck": "0",
-            "enews": "AddNews",  # 保持操作类型
-            "submit": "提交",
-            "copyimg": "1",  # 远程保存图片
-            "getfirsttitlepic": "1",  # 取第x张图片为缩略图
-            "getfirsttitlespic": "1"  # 是否缩略图
+    # 3. 构造文章数据
+    post_data = {
+        **hidden_inputs,  # 必须带上
+        "checked": "1",
+        "title": title,
+        "newstext": text,
+        "classid": menu_value,
+        "ecmscheck": "0",
+        "enews": "AddNews",  # 保持操作类型
+        "submit": "提交",
+        "copyimg": "1",  # 远程保存图片
+        "getfirsttitlepic": "1",  # 取第x张图片为缩略图
+        "getfirsttitlespic": "1"  # 是否缩略图
 
-        }
+    }
 
-        # 八，提交文章
-        post_url = base_url + "/ecmsinfo.php"
-        r = session.post(post_url, data=post_data)
-        open_resp(r)
-        time.sleep(sleeptime)
+    # 八，提交文章
+    post_url = base_url + "/ecmsinfo.php"
+    r = session.post(post_url, data=post_data)
+    open_resp(r)
+      
 
 
 def get_menu(update_context):
     session = update_context.session
 
 
-    zixun_page, zixun_page_url = login(update_context)
+    zixun_page, zixun_page_url = login_diguo(update_context)
     # 获取js文件中的内容，得到例如[('1', '|-资讯'), ('2', '|-疾病'), ('3', '|-中医'), ('4', '|-两性')]
     js_result = get_js_fr_zixun_page(session, zixun_page, zixun_page_url)
     print(js_result)
     return js_result
 
 if __name__ == '__main__':
-    class update_context:
-        def __init__(self,session,suffix,root_url,username,password,titles_and_texts,sleeptime,menu_value):
+    class url_update_context:
+        def __init__(self,session,root_url,suffix,username,password):
             self.session = session
             self.suffix = suffix
             self.root_url = root_url
 
             self.base_url = urljoin(self.root_url, self.suffix)
-            print(self.base_url)
+
             self.username = username
             self.password = password
-            self.titles_and_texts = titles_and_texts
-            self.sleeptime = sleeptime
-            self.menu_value = menu_value
-            
-
+  
     session = requests.Session()
-    base_url = "http://lin.cqleshun.com/e/AcoyKcy7s9"
+
     username = "yh1"
     password = "yh123456"
 
@@ -273,8 +268,16 @@ if __name__ == '__main__':
     menu_value = "1"
     suffix = "e/AcoyKcy7s9"
     root_url = "http://lin.cqleshun.com"
-    upload_date = update_context(session,suffix,root_url,username,password,titles_and_texts,sleeptime,menu_value)
+
+
+    upload_date = url_update_context(session,root_url,suffix,username,password)
     
-    upload(upload_date)
+   
+
+    # zixun_page = upload_before(upload_date)
+    # for title,text in titles_and_texts.items():
+    #     upload(session,zixun_page,upload_date.base_url,menu_value,title,text)
+    #     time.sleep(3)
+
 
 

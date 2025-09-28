@@ -43,7 +43,8 @@ def run_app():
         host=host,
         port=port,
         debug=debug,
-        threaded=True
+        threaded=True,
+        use_reloader=False
     )
 
 if __name__ == '__main__':

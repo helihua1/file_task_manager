@@ -10,8 +10,96 @@
     </a>
 </div>
 
-<div class="row justify-content-center">
-    <div class="col-lg-8">
+<div class="row">
+    <!-- 左侧：URL选择表 -->
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-list me-2"></i>URL选择
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- 过滤表单 -->
+                <form method="GET" class="mb-3">
+                    <div class="input-group">
+                        <input type="text" class="form-control" name="filter_name" 
+                               value="{{ filter_name or '' }}" placeholder="按名称过滤...">
+                        <button class="btn btn-outline-secondary" type="submit">
+                            <i class="fas fa-filter"></i> 过滤
+                        </button>
+                        {% if filter_name %}
+                        <a href="{{ url_for('user.create_task') }}" class="btn btn-outline-danger">
+                            <i class="fas fa-times"></i> 清除
+                        </a>
+                        {% endif %}
+                    </div>
+                </form>
+
+                <!-- URL表格 -->
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>名称</th>
+                                <th>根URL</th>
+                                <th>菜单</th>
+                                <th width="60">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for context in url_contexts %}
+                            <tr>
+                                <td>{{ context.name or '未命名' }}</td>
+                                <td><small>{{ context.root_url }}</small></td>
+                                <td>
+                                    {% if context.menus %}
+                                        {% for menu in context.menus %}
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input menu-checkbox" type="checkbox" 
+                                                   data-context-id="{{ context.id }}"
+                                                   data-root-url="{{ context.root_url }}"
+                                                   data-menu-value="{{ menu.menu_value }}"
+                                                   data-menu-text="{{ menu.menu_text }}"
+                                                   id="menu_{{ context.id }}_{{ menu.id }}">
+                                            <label class="form-check-label small" for="menu_{{ context.id }}_{{ menu.id }}">
+                                                {{ menu.menu_text }}
+                                            </label>
+                                        </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <small class="text-muted">无菜单</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-outline-primary add-url-btn"
+                                            data-context-id="{{ context.id }}"
+                                            data-root-url="{{ context.root_url }}">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% if not url_contexts %}
+                            <tr>
+                                <td colspan="4" class="text-center text-muted">
+                                    {% if filter_name %}
+                                        未找到匹配的URL
+                                    {% else %}
+                                        暂无URL数据
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧：任务配置 -->
+    <div class="col-lg-6">
         <div class="card">
             <div class="card-header">
                 <h5 class="mb-0">
@@ -40,12 +128,13 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label for="target_url" class="form-label">目标网站URL <span class="text-danger">*</span></label>
-                        <input type="url" class="form-control" id="target_url" name="target_url" required 
-                               placeholder="https://example.com/api/upload">
+                        <label class="form-label">目标网站URL列表 <span class="text-danger">*</span></label>
+                        <div id="target-url-list" class="border rounded p-2" style="min-height: 100px; background-color: #f8f9fa;">
+                            <small class="text-muted">请从左侧选择URL并点击加号添加到此列表</small>
+                        </div>
                         <div class="form-text">
                             <i class="fas fa-info-circle me-1"></i>
-                            文件内容将发送到此URL
+                            文件内容将发送到这些URL
                         </div>
                     </div>
                     
@@ -81,7 +170,7 @@
                             <ul class="mb-0">
                                 <li>任务将按照设定的时间间隔自动执行</li>
                                 <li>每次执行会选择一个未处理的文件</li>
-                                <li>文件内容会通过HTTP POST请求发送到目标URL</li>
+                                <li>文件内容会通过HTTP POST请求发送到目标URL列表中的所有URL</li>
                                 <li>执行成功的文件会被移动到"已执行"文件夹</li>
                                 <li>所有文件执行完毕后任务自动完成</li>
                             </ul>
@@ -112,11 +201,92 @@ window.addEventListener('load', function() {
     document.getElementById('start_time').value = now.toISOString().slice(0, 16);
 });
 
+// 添加URL到目标列表
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.add-url-btn')) {
+        const btn = e.target.closest('.add-url-btn');
+        const contextId = btn.dataset.contextId;
+        const rootUrl = btn.dataset.rootUrl;
+        
+        // 获取该行选中的菜单
+        const row = btn.closest('tr');
+        const selectedMenus = row.querySelectorAll('.menu-checkbox:checked');
+        
+        if (selectedMenus.length === 0) {
+            alert('请先选择要添加的菜单');
+            return;
+        }
+        
+        const targetList = document.getElementById('target-url-list');
+        
+        selectedMenus.forEach(checkbox => {
+            const menuValue = checkbox.dataset.menuValue;
+            const menuText = checkbox.dataset.menuText;
+            const fullUrl = rootUrl + '栏目值:' + menuValue;
+            
+            // 检查是否已存在
+            const existingInputs = targetList.querySelectorAll('input[name="target_url"]');
+            let exists = false;
+            existingInputs.forEach(input => {
+                if (input.value === fullUrl) {
+                    exists = true;
+                }
+            });
+            
+            if (!exists) {
+                // 创建新的URL项
+                const urlItem = document.createElement('div');
+                urlItem.className = 'mb-2 p-2 border rounded bg-white d-flex justify-content-between align-items-center';
+                urlItem.innerHTML = `
+                    <div>
+                        <strong>${menuText}</strong><br>
+                        <small class="text-muted">${fullUrl}</small>
+                        <input type="hidden" name="target_url" value="${fullUrl}">
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-url-btn">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                
+                // 如果是第一个项目，移除提示文字
+                if (targetList.children.length === 1 && targetList.children[0].tagName === 'SMALL') {
+                    targetList.innerHTML = '';
+                }
+                
+                targetList.appendChild(urlItem);
+            }
+            
+            // 取消选中
+            checkbox.checked = false;
+        });
+    }
+    
+    // 移除URL
+    if (e.target.closest('.remove-url-btn')) {
+        const urlItem = e.target.closest('.mb-2');
+        urlItem.remove();
+        
+        // 如果没有URL了，显示提示文字
+        const targetList = document.getElementById('target-url-list');
+        if (targetList.children.length === 0) {
+            targetList.innerHTML = '<small class="text-muted">请从左侧选择URL并点击加号添加到此列表</small>';
+        }
+    }
+});
+
 // 表单验证
 document.getElementById('taskForm').addEventListener('submit', function(e) {
     const startTime = new Date(document.getElementById('start_time').value);
     const endTime = document.getElementById('end_time').value;
     const submitBtn = document.getElementById('submitBtn');
+    const targetUrls = document.querySelectorAll('input[name="target_url"]');
+    
+    // 检查是否有目标URL
+    if (targetUrls.length === 0) {
+        alert('请至少添加一个目标URL');
+        e.preventDefault();
+        return;
+    }
     
     // 检查开始时间
     if (startTime < new Date()) {
@@ -147,6 +317,10 @@ function resetForm() {
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     document.getElementById('start_time').value = now.toISOString().slice(0, 16);
+    
+    // 清空目标URL列表
+    const targetList = document.getElementById('target-url-list');
+    targetList.innerHTML = '<small class="text-muted">请从左侧选择URL并点击加号添加到此列表</small>';
 }
 
 // 执行间隔建议

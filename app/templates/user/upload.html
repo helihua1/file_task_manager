@@ -17,6 +17,35 @@
             </div>
             <div class="card-body">
                 <form method="POST" enctype="multipart/form-data" id="uploadForm">
+                    <!-- 文件夹选择区域 -->
+                    <div class="mb-3">
+                        <label for="target_folder" class="form-label">选择上传文件夹</label>
+                        <div class="row">
+                            <div class="col-md-8">
+                                <select class="form-select" id="target_folder" name="target_folder">
+                                    <option value="">根目录</option>
+                                    {% for folder in user_folders %}
+                                    <option value="{{ folder }}">{{ folder }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="btn-group" role="group">
+                                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="showCreateFolderModal()">
+                                        <i class="fas fa-plus me-1"></i>新建
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="showDeleteFolderModal()">
+                                        <i class="fas fa-trash me-1"></i>删除
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-text">
+                            <i class="fas fa-info-circle me-1"></i>
+                            选择文件上传的目标文件夹，或创建新文件夹
+                        </div>
+                    </div>
+                    
                     <div class="mb-3">
                         <label for="files" class="form-label">选择文件</label>
                         <input type="file" class="form-control" id="files" name="files" multiple accept=".txt" required>
@@ -58,8 +87,64 @@
                     <li>单个文件大小不超过10MB</li>
                     <li>可以同时选择多个文件进行批量上传</li>
                     <li>上传的文件将用于后续的任务执行</li>
-                    <li>文件上传后会自动保存到您的个人文件夹中</li>
+                    <li>可以选择上传到指定文件夹或根目录</li>
+                    <li>文件夹只能单层，不支持嵌套结构</li>
                 </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 创建文件夹模态框 -->
+<div class="modal fade" id="createFolderModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">创建新文件夹</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createFolderForm">
+                    <div class="mb-3">
+                        <label for="folder_name" class="form-label">文件夹名称</label>
+                        <input type="text" class="form-control" id="folder_name" name="folder_name" required>
+                        <div class="form-text">文件夹名称只能包含字母、数字、中文、下划线和连字符</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="createFolder()">创建</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除文件夹模态框 -->
+<div class="modal fade" id="deleteFolderModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">删除文件夹</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="deleteFolderForm">
+                    <div class="mb-3">
+                        <label for="delete_folder_name" class="form-label">选择要删除的文件夹</label>
+                        <select class="form-select" id="delete_folder_name" name="delete_folder_name" required>
+                            <option value="">请选择文件夹</option>
+                            {% for folder in user_folders %}
+                            <option value="{{ folder }}">{{ folder }}</option>
+                            {% endfor %}
+                        </select>
+                        <!-- <div class="form-text text-warning">只能删除空文件夹</div> -->
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" onclick="deleteFolder()">删除</button>
             </div>
         </div>
     </div>
@@ -137,5 +222,80 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
     uploadBtn.disabled = true;
     uploadBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>上传中...';
 });
+
+// 文件夹管理功能
+function showCreateFolderModal() {
+    const modal = new bootstrap.Modal(document.getElementById('createFolderModal'));
+    modal.show();
+}
+
+function showDeleteFolderModal() {
+    const modal = new bootstrap.Modal(document.getElementById('deleteFolderModal'));
+    modal.show();
+}
+
+function createFolder() {
+    const folderName = document.getElementById('folder_name').value.trim();
+    
+    if (!folderName) {
+        alert('请输入文件夹名称');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('folder_name', folderName);
+    
+    fetch('/user/api/create_folder', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('文件夹创建成功');
+            location.reload(); // 刷新页面更新文件夹列表
+        } else {
+            alert('创建失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('创建失败，请重试');
+    });
+}
+
+function deleteFolder() {
+    const folderName = document.getElementById('delete_folder_name').value;
+    
+    if (!folderName) {
+        alert('请选择要删除的文件夹');
+        return;
+    }
+    
+    if (!confirm(`确定要删除文件夹 "${folderName}" 吗？`)) {
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('folder_name', folderName);
+    
+    fetch('/user/api/delete_folder', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('文件夹删除成功');
+            location.reload(); // 刷新页面更新文件夹列表
+        } else {
+            alert('删除失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('删除失败，请重试');
+    });
+}
 </script>
 {% endblock %}

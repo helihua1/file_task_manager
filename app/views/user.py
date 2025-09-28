@@ -1,4 +1,4 @@
-"""
+﻿"""
 [用户功能视图控制器]
 处理用户文件上传、任务管理等核心功能
 """
@@ -13,7 +13,8 @@ from app.models.file import File
 from app.models.task import Task
 from app.models.task_execution import TaskExecution
 from app import db
-
+from app.models.url_context import UrlUpdateContext, UrlMenu
+import shutil
 user = Blueprint('user', __name__, url_prefix='/user')
 
 def allowed_file(filename):
@@ -33,6 +34,63 @@ def create_user_upload_dir(user_id):
     if not os.path.exists(user_dir):
         os.makedirs(user_dir)
     return user_dir
+
+def get_user_folders(user_id):
+    """
+    获取用户的所有文件夹
+    返回用户目录下的所有文件夹列表
+    """
+    user_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], str(user_id))
+    if not os.path.exists(user_dir):
+        return []
+    
+    folders = []
+    for item in os.listdir(user_dir):
+        item_path = os.path.join(user_dir, item)
+        if os.path.isdir(item_path):
+            folders.append(item)
+    return sorted(folders)
+
+def create_user_folder(user_id, folder_name):
+    """
+    为用户创建新文件夹
+    只允许单层文件夹，不允许嵌套
+    """
+    user_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], str(user_id))
+    if not os.path.exists(user_dir):
+        os.makedirs(user_dir)
+    
+    folder_path = os.path.join(user_dir, folder_name)
+    if os.path.exists(folder_path):
+        return False, "文件夹已存在"
+    
+    try:
+        os.makedirs(folder_path)
+        return True, "文件夹创建成功"
+    except Exception as e:
+        return False, f"创建失败: {str(e)}"
+
+def delete_user_folder(user_id, folder_name):
+    """
+    删除用户文件夹
+    只能删除空文件夹
+    """
+    user_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], str(user_id))
+    folder_path = os.path.join(user_dir, folder_name)
+    
+    if not os.path.exists(folder_path):
+        return False, "文件夹不存在"
+    
+    try:
+        # # 检查文件夹是否为空
+        # if os.listdir(folder_path):
+        #     return False, "只能删除空文件夹"
+        
+        # os.rmdir(folder_path)
+        shutil.rmtree(folder_path)
+        return True, "文件夹删除成功"
+    except Exception as e:
+        return False, f"删除失败: {str(e)}"
 
 @user.route('/dashboard')
 @login_required
@@ -80,8 +138,18 @@ def upload_files():
             flash('请选择要上传的文件', 'error')
             return redirect(request.url)
         
-        # [2-2.2] 创建用户上传目录
+        # [2-2.2] 获取目标文件夹
+        target_folder = request.form.get('target_folder', '')
         user_upload_dir = create_user_upload_dir(current_user.id)
+        
+        # 如果指定了文件夹，使用该文件夹路径
+        if target_folder:
+            target_path = os.path.join(user_upload_dir, target_folder)
+            if not os.path.exists(target_path):
+                flash('指定的文件夹不存在', 'error')
+                return redirect(request.url)
+        else:
+            target_path = user_upload_dir
         
         uploaded_count = 0
         failed_count = 0
@@ -90,14 +158,8 @@ def upload_files():
         for file in files:
             if file and allowed_file(file.filename):
                 try:
-                    # [2-2.4] 生成安全的文件名
-                    # original_filename = secure_filename(file.filename)
-                    # file_extension = original_filename.rsplit('.', 1)[1].lower()
-                    
-                    # unique_filename = f"{uuid.uuid4().hex}.{file_extension}"
-                    # file_path = os.path.join(user_upload_dir, unique_filename)
                     original_filename = file.filename
-                    file_path = os.path.join(user_upload_dir, original_filename)
+                    file_path = os.path.join(target_path, original_filename)
                     
                     # [2-2.5] 保存文件到磁盘
                     file.save(file_path)
@@ -106,7 +168,6 @@ def upload_files():
                     # [2-2.6] 保存文件信息到数据库
                     file_record = File(
                         user_id=current_user.id,
-                        # filename=unique_filename,
                         original_filename=original_filename,
                         filename=original_filename,
                         file_path=file_path,
@@ -135,7 +196,51 @@ def upload_files():
         
         return redirect(url_for('user.file_list'))
     
-    return render_template('user/upload.html')
+    # GET请求时获取用户文件夹列表
+    user_folders = get_user_folders(current_user.id)
+    return render_template('user/upload.html', user_folders=user_folders)
+
+@user.route('/api/create_folder', methods=['POST'])
+@login_required
+def create_folder():
+    """
+    创建新文件夹API
+    """
+    folder_name = request.form.get('folder_name', '').strip()
+    
+    if not folder_name:
+        return jsonify({'success': False, 'message': '文件夹名称不能为空'})
+    
+    # 验证文件夹名称（不允许包含特殊字符）
+    import re
+    if not re.match(r'^[a-zA-Z0-9\u4e00-\u9fa5_-]+$', folder_name):
+        return jsonify({'success': False, 'message': '文件夹名称只能包含字母、数字、中文、下划线和连字符'})
+    
+    success, message = create_user_folder(current_user.id, folder_name)
+    return jsonify({'success': success, 'message': message})
+
+@user.route('/api/delete_folder', methods=['POST'])
+@login_required
+def delete_folder():
+    """
+    删除文件夹API
+    """
+    folder_name = request.form.get('folder_name', '').strip()
+    
+    if not folder_name:
+        return jsonify({'success': False, 'message': '文件夹名称不能为空'})
+    
+    success, message = delete_user_folder(current_user.id, folder_name)
+    return jsonify({'success': success, 'message': message})
+
+@user.route('/api/get_folders')
+@login_required
+def get_folders():
+    """
+    获取用户文件夹列表API
+    """
+    folders = get_user_folders(current_user.id)
+    return jsonify({'folders': folders})
 
 @user.route('/files')
 @login_required
@@ -202,22 +307,31 @@ def create_task():
     GET: 显示任务创建表单
     POST: 保存新任务到数据库
     """
+    # 获取过滤参数
+    filter_name = request.args.get('filter_name', '').strip()
+    
+    # 获取URL上下文数据
+    url_contexts_query = UrlUpdateContext.query
+    if filter_name:
+        url_contexts_query = url_contexts_query.filter(UrlUpdateContext.name.like(f'%{filter_name}%'))
+    url_contexts = url_contexts_query.all()
+    
     if request.method == 'POST':
         task_name = request.form.get('task_name')
-        target_url = request.form.get('target_url')
+        target_urls = request.form.getlist('target_url')  # 改为获取多个URL
         execution_method = request.form.get('execution_method', 'a_method')
         interval_seconds = request.form.get('interval_seconds', type=int)
         start_time_str = request.form.get('start_time')
         end_time_str = request.form.get('end_time')
         
         # [3-2.1] 验证输入数据
-        if not all([task_name, target_url, interval_seconds, start_time_str]):
+        if not all([task_name, target_urls, interval_seconds, start_time_str]):
             flash('请填写所有必填字段', 'error')
-            return render_template('user/create_task.html')
+            return render_template('user/create_task.html', url_contexts=url_contexts, filter_name=filter_name)
         
         if interval_seconds < 1:
             flash('执行间隔必须大于0秒', 'error')
-            return render_template('user/create_task.html')
+            return render_template('user/create_task.html', url_contexts=url_contexts, filter_name=filter_name)
         
         try:
             # [3-2.2] 解析时间字符串
@@ -227,7 +341,7 @@ def create_task():
                 end_time = datetime.strptime(end_time_str, '%Y-%m-%dT%H:%M')
                 if end_time <= start_time:
                     flash('结束时间必须晚于开始时间', 'error')
-                    return render_template('user/create_task.html')
+                    return render_template('user/create_task.html', url_contexts=url_contexts, filter_name=filter_name)
             
             # [3-2.3] 检查是否有可执行的文件
             pending_files_count = File.query.filter_by(
@@ -239,7 +353,8 @@ def create_task():
                 flash('没有可执行的文件，请先上传文件', 'error')
                 return redirect(url_for('user.upload_files'))
             
-            # [3-2.4] 创建任务记录
+            # [3-2.4] 创建任务记录（这里需要修改支持多个URL）
+            target_url = ','.join(target_urls)  # 暂时用逗号分隔存储多个URL
             task = Task(
                 user_id=current_user.id,
                 task_name=task_name,
@@ -263,7 +378,7 @@ def create_task():
             flash('任务创建失败，请重试', 'error')
             current_app.logger.error(f"创建任务失败: {str(e)}")
     
-    return render_template('user/create_task.html')
+    return render_template('user/create_task.html', url_contexts=url_contexts, filter_name=filter_name)
 
 @user.route('/tasks/<int:task_id>')
 @login_required
@@ -336,3 +451,218 @@ def get_task_status(task_id):
         return jsonify({'error': '任务不存在'}), 404
     
     return jsonify(task.get_task_info())
+@user.route('/url_management')
+@login_required
+def url_management():
+    """
+    URL管理页面
+    显示已添加的URL列表和添加新URL的界面
+    """
+    # 获取所有URL上下文数据
+    url_contexts = UrlUpdateContext.query.all()
+    
+    # 获取临时数据用于显示菜单结果
+    from flask import session as flask_session
+    menu_data = flask_session.get('temp_menu_data')
+    url_data = flask_session.get('temp_url_data')
+    
+    return render_template('user/url_management.html', 
+                         url_contexts=url_contexts,
+                         menu_data=menu_data,
+                         url_data=url_data)
+
+@user.route('/api/test_url_menu', methods=['POST'])
+@login_required
+def test_url_menu():
+    """
+    测试URL菜单获取
+    调用test.py中的get_menu方法
+    """
+    print('开始检索')
+    try:
+        # 从表单数据获取参数
+        root_url = request.form.get('root_url')
+        suffix = request.form.get('suffix') 
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if not all([root_url, suffix, username, password]):
+            flash('所有字段都是必填的', 'error')
+            return redirect(url_for('user.url_management'))
+        
+        # 导入测试模块
+        import test
+        from app.models.url_context import url_update_context
+        import requests
+        
+        # 创建会话和上下文
+        session = requests.Session()
+        upload_context = url_update_context(session, root_url, suffix, username, password)
+        
+        # 获取菜单数据
+        menu_data = test.get_menu(upload_context)
+        
+        if menu_data:
+            # 将菜单数据存储到session中，供后续添加使用
+            from flask import session as flask_session
+            flask_session['temp_menu_data'] = menu_data
+            flask_session['temp_url_data'] = {
+                'root_url': root_url,
+                'suffix': suffix,
+                'username': username,
+                'password': password
+            }
+            flash(f'成功获取到 {len(menu_data)} 个菜单项', 'success')
+            # 重定向回原页面，但带上数据
+            return redirect(url_for('user.url_management'))
+        else:
+            flash('未能获取菜单数据', 'error')
+            return redirect(url_for('user.url_management'))
+            
+    except Exception as e:
+        flash(f'检索失败: {str(e)}', 'error')
+        return redirect(url_for('user.url_management'))
+
+@user.route('/confirm_url_menu')
+@login_required
+def confirm_url_menu():
+    """
+    确认菜单页面
+    显示获取到的菜单数据，让用户确认是否添加
+    """
+    from flask import session as flask_session
+    menu_data = flask_session.get('temp_menu_data')
+    url_data = flask_session.get('temp_url_data')
+    
+    if not menu_data or not url_data:
+        flash('没有可确认的菜单数据', 'error')
+        return redirect(url_for('user.url_management'))
+    
+    return render_template('user/confirm_menu.html',
+                         menu_data=menu_data,
+                         url_data=url_data)
+
+@user.route('/add_url_context', methods=['POST'])
+@login_required
+def add_url_context():
+    """
+    添加URL上下文到数据库
+    保存URL信息和对应的菜单数据
+    """
+    try:
+        from flask import session as flask_session
+        menu_data = flask_session.get('temp_menu_data')
+        
+        # 从表单获取数据
+        root_url = request.form.get('root_url')
+        suffix = request.form.get('suffix')
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if not all([root_url, suffix, username, password]):
+            flash('缺少必要参数', 'error')
+            return redirect(url_for('user.url_management'))
+        
+        if not menu_data:
+            flash('没有可添加的菜单数据', 'error')
+            return redirect(url_for('user.url_management'))
+        
+        # 检查是否已存在相同的URL上下文
+        existing = UrlUpdateContext.query.filter_by(
+            root_url=root_url, 
+            suffix=suffix
+        ).first()
+        
+        if existing:
+            flash('该URL上下文已存在', 'error')
+            return redirect(url_for('user.url_management'))
+        
+        # 创建新的URL上下文
+        url_context = UrlUpdateContext(
+            root_url=root_url,
+            suffix=suffix,
+            username=username,
+            password=password
+        )
+        db.session.add(url_context)
+        db.session.flush()  # 获取ID
+        
+        # 添加菜单数据
+        for menu_item in menu_data:
+            menu_value = menu_item[0]
+            menu_text = menu_item[1]
+            
+            url_menu = UrlMenu(
+                context_id=url_context.id,
+                menu_value=menu_value,
+                menu_text=menu_text
+            )
+            db.session.add(url_menu)
+        
+        db.session.commit()
+        
+        # 清除临时数据
+        flask_session.pop('temp_menu_data', None)
+        flask_session.pop('temp_url_data', None)
+        
+        flash('URL上下文添加成功', 'success')
+        return redirect(url_for('user.url_management'))
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'添加失败: {str(e)}', 'error')
+        return redirect(url_for('user.url_management'))
+
+@user.route('/delete_url_context/<int:context_id>', methods=['POST'])
+@login_required
+def delete_url_context(context_id):
+    """
+    删除URL上下文
+    根据context_id删除URL上下文和关联的菜单数据
+    """
+    try:
+        # 查找URL上下文
+        url_context = UrlUpdateContext.query.get(context_id)
+        if not url_context:
+            flash('URL上下文不存在', 'error')
+            return redirect(url_for('user.url_management'))
+        
+        # 删除URL上下文（由于cascade='all, delete-orphan'，关联的菜单会自动删除）
+        db.session.delete(url_context)
+        db.session.commit()
+        
+        flash('URL上下文删除成功', 'success')
+        return redirect(url_for('user.url_management'))
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'删除失败: {str(e)}', 'error')
+        return redirect(url_for('user.url_management'))
+
+@user.route('/update_url_context_name/<int:context_id>', methods=['POST'])
+@login_required
+def update_url_context_name(context_id):
+    """
+    更新URL上下文的名称
+    """
+    try:
+        # 查找URL上下文
+        url_context = UrlUpdateContext.query.get(context_id)
+        if not url_context:
+            flash('URL上下文不存在', 'error')
+            return redirect(url_for('user.url_management'))
+        
+        # 获取新的名称
+        new_name = request.form.get('name', '').strip()
+        
+        # 更新名称
+        url_context.name = new_name if new_name else None
+        db.session.commit()
+        
+        flash('名称更新成功', 'success')
+        return redirect(url_for('user.url_management'))
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'更新失败: {str(e)}', 'error')
+        return redirect(url_for('user.url_management'))
