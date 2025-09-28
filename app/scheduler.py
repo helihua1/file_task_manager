@@ -4,17 +4,28 @@
 """
 import requests
 import logging
-from datetime import datetime
+import threading
+import time
+from datetime import datetime, time as dt_time
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from apscheduler.triggers.cron import CronTrigger
 from app.models.task import Task
 from app.models.file import File
 from app.models.task_execution import TaskExecution
+from app.models.url_context import UrlUpdateContext
 from app import db
-
+import test
+from app.models.url_context import url_update_context
 # [4] 任务调度器初始化
 scheduler = BackgroundScheduler()
 logger = logging.getLogger(__name__)
+
+# 全局session锁，用于管理同一网站的并发访问
+session_locks = {}
+session_lock = threading.Lock()
+from sqlalchemy.orm import sessionmaker
+# SessionLocal = sessionmaker(bind=db.engine)
 
 class TaskScheduler:
     """
@@ -43,8 +54,8 @@ class TaskScheduler:
             timezone=app.config.get('SCHEDULER_TIMEZONE', 'UTC'),
             job_defaults={
                 'coalesce': False,
-                'max_instances': 3,
-                'misfire_grace_time': 30
+                # 'max_instances': 100,  # 增加最大实例数
+                # 'misfire_grace_time': 30
             }
         )
         
@@ -64,22 +75,38 @@ class TaskScheduler:
         """
         if not task.can_execute():
             return False
-        
+
+        # todo 每个人可能有多个任务不能直接去除
         job_id = f"task_{task.id}"
         
         # [4-1.7] 移除已存在的job
         if self.scheduler.get_job(job_id):
             self.scheduler.remove_job(job_id)
         
-        # [4-1.8] 添加新的定时job
+        # [4-1.8] 根据任务配置选择触发器
+        if task.daily_start_time:
+            # 使用cron触发器，每天在指定时间执行
+            trigger = CronTrigger(
+                hour=task.daily_start_time.hour,
+                minute=task.daily_start_time.minute,
+                start_date=task.start_time,
+                end_date=task.end_time
+            )
+        else:
+            # 使用间隔触发器
+            trigger = IntervalTrigger(
+                seconds=task.interval_seconds,
+                # start_date=task.start_time,
+                end_date=task.end_time
+            )
+
+        # [4-1.9] 添加新的定时job
         self.scheduler.add_job(
             func=self.execute_task,
-            trigger=IntervalTrigger(seconds=task.interval_seconds),
+            trigger=trigger,
             args=[task.id],
             id=job_id,
             name=f"Task: {task.task_name}",
-            start_date=task.start_time,
-            end_date=task.end_time,
             replace_existing=True
         )
         
@@ -88,7 +115,7 @@ class TaskScheduler:
     
     def remove_task_job(self, task_id):
         """
-        [4-1.9] 从调度器移除任务
+        [4-1.10] 从调度器移除任务
         暂停或停止任务时调用
         """
         job_id = f"task_{task_id}"
@@ -109,48 +136,32 @@ class TaskScheduler:
                     self.remove_task_job(task_id)
                     return
                 
-                # [4-2.2] 获取下一个待执行的文件
-                file_to_execute = task.get_next_file()
-                if not file_to_execute:
+                # [4-2.2] 获取目标URL列表
+                target_urls = task.target_url.split(',')
+                
+                # [4-2.3] 获取要执行的文件（根据每日执行数量乘以目标URL数量）
+                files_to_execute = []
+                for _ in range(task.daily_execution_count*len(target_urls)):
+                    file_to_execute = task.get_next_file()
+                    if file_to_execute:
+                        files_to_execute.append(file_to_execute)
+                    else:
+                        break
+                
+                if not files_to_execute:
                     # 没有更多文件可执行，完成任务
                     task.complete_task()
                     self.remove_task_job(task_id)
                     logger.info(f"任务 {task.task_name} 已完成，所有文件执行完毕")
                     return
                 
-                # [4-2.3] 执行文件上传到目标网站
-                success, response_data, error_message = self.upload_file_to_target(
-                    file_to_execute, task.target_url, task.execution_method
-                )
-                
-                if success:
-                    # [4-2.4] 执行成功处理
-                    file_to_execute.mark_as_executed()
-                    file_to_execute.move_to_executed_folder()
-                    task.increment_executed_count()
-                    
-                    # [4-2.5] 记录成功执行
-                    TaskExecution.create_success_record(
-                        task_id=task.id,
-                        file_id=file_to_execute.id,
-                        response_data=response_data
-                    )
-                    
-                    logger.info(f"文件 {file_to_execute.original_filename} 执行成功")
-                else:
-                    # [4-2.6] 执行失败处理
-                    TaskExecution.create_failed_record(
-                        task_id=task.id,
-                        file_id=file_to_execute.id,
-                        error_message=error_message
-                    )
-                    
-                    logger.error(f"文件 {file_to_execute.original_filename} 执行失败: {error_message}")
+                # [4-2.4] 并行执行文件上传到多个目标网站
+                self.execute_parallel_uploads(task, files_to_execute, target_urls)
                 
             except Exception as e:
                 logger.error(f"执行任务 {task_id} 时发生错误: {str(e)}")
                 
-                # [4-2.7] 记录系统错误
+                # [4-2.5] 记录系统错误
                 try:
                     task = Task.query.get(task_id)
                     if task:
@@ -159,61 +170,182 @@ class TaskScheduler:
                 except Exception:
                     pass
     
-    def upload_file_to_target(self, file_obj, target_url, method):
+    def execute_parallel_uploads(self, task, files, target_urls):
         """
-        [4-3] 将文件内容上传到目标网站
-        实现a_method的具体逻辑
+        [4-3] 并行执行文件上传
+        为每个目标URL创建线程，但同一网站的请求会串行执行
         """
-        try:
-            # [4-3.1] 读取文件内容
-            file_content = file_obj.read_content()
-            
-            # [4-3.2] 准备请求数据
-            if method == 'a_method':
-                # 实现a方法的具体逻辑
-                payload = {
-                    'content': file_content,
-                    'filename': file_obj.original_filename,
-                    'timestamp': datetime.utcnow().isoformat(),
-                    'method': method
-                }
+        import threading
+
+        def get_session_local():
+            """动态获取 SessionLocal，确保在应用上下文中创建"""
+            from sqlalchemy.orm import sessionmaker
+            return sessionmaker(bind=db.engine)
+
+        def upload_to_target(target_url, file_objs):
+            """
+            上传文件到指定目标URL
+            """
+            # 在子线程中创建应用上下文
+                # 想象Flask应用上下文就像一个"工作环境"，在这个环境里你才能：
+                # 连接数据库
+                # 使用Flask的ORM功能
+                # 访问应用配置
+                # 没有这个环境，就像在没有网络的地方尝试上网一样，会报错。
+                # 所以 with self.app.app_context(): 就是在子线程中"搭建"这个工作环境，让数据库操作能够正常进行
+            with self.app.app_context():
+
+                # 第一个括号 ()：调用 get_session_local() 函数，返回一个 sessionmaker 对象
+                # 第二个括号 ()：调用返回的 sessionmaker 对象，创建一个新的数据库会话
+                dbsession = get_session_local()()
+
+                try:
+                    # 解析URL获取网站信息
+                    url_parts = target_url.split('栏目值:')
+                    if len(url_parts) != 2:
+                        logger.error(f"URL格式错误: {target_url}")
+                        return False, None, "URL格式错误"
+                    
+                    root_url = url_parts[0]
+                    menu_value = url_parts[1]
+                    
+                    # 获取网站配置信息，返回UrlUpdateContext对象实例
+                    url_context = UrlUpdateContext.query.filter_by(root_url=root_url).first()
+                    if not url_context:
+                        logger.error(f"未找到URL配置: {root_url}")
+                        return False, None, "未找到URL配置"
+                    
+                    # 使用网站锁确保同一网站的请求串行执行
+                    with self.get_site_lock(root_url):
+
+                        # 创建session，并且登录
+
+                        # [4-5.1] 创建session上下文
+                        
+                        session = requests.Session()
+                        upload_date = url_update_context(session, url_context.root_url, url_context.suffix, url_context.username, url_context.password)
+
+                        # [4-5.2] 执行upload_before逻辑
+                        zixun_page = test.upload_before(upload_date)
+
+
+                        if  zixun_page.status_code != 200:
+                            return False, None, f"upload_before执行失败 {zixun_page.status_code}"
+
+                        # 循环上传文件
+                        for file_obj_main_thread in file_objs:
+                            try:
+                                file_obj_main_thread.id
+                                file_obj = dbsession.query(File).filter_by(id=file_obj_main_thread.id).first()
+                                print(f"数据库线程得到的filename:{file_obj.filename}")
+                                #  读取文件内容
+                                file_content = file_obj.read_content()
+                                file_title = file_obj.original_filename.replace('.txt', '')
+                                
+                                
+                                # [4-5.3] 执行upload逻辑
+                                status_code = test.upload(session, zixun_page, upload_date.base_url, menu_value, file_title, file_content)
+                                time.sleep(task.interval_seconds)
+                            except Exception as e:
+                                # f"执行错误: {str(e)}" 是在 upload_to_target 函数内部，这个函数作为线程目标函数运行。线程的返回值不会被主线程捕获或处理。
+                                print(f"执行错误: {str(e)}")
+                                return False, None, f"执行错误: {str(e)}"
+                                
+                                
+                            if status_code == 200:
+                                try:
+
+                                    # 标记文件为已执行
+                                    file_obj.is_executed = True
+                                    file_obj.executed_at = datetime.utcnow()
+                                    
+                                    # 移动文件到已执行文件夹
+                                    file_obj.move_to_executed_folder()
+                                    
+                                    # 增加已执行计数
+                                    task.executed_files_count += 1
+                                    task.updated_at = datetime.utcnow()
+                                    
+                                    # 创建执行记录
+                                    execution_record = TaskExecution(
+                                        task_id=task.id,
+                                        file_id=file_obj.id,
+                                        status='success',
+                                        response_data=status_code
+                                    )
+                                    dbsession.add(execution_record)
+                                    
+                                    # 一次性提交所有更改，在 Flask-SQLAlchemy 中，所有通过 Model.query 查询得到的对象都会被当前的 db.session 自动跟踪。当你修改这些对象的属性时，session 会将这些对象标记为 "dirty"（需要更新）。调用 commit() 时，session 会生成相应的 SQL 语句来更新所有被修改的对象
+                                    dbsession.commit()
+                                    
+                                    logger.info(f"文件 {file_obj.original_filename} 上传到 {root_url} 成功")
+                                    
+                                except Exception as e:
+                                    print(f"数据库操作失败: {str(e)}，回滚")
+                                    db.session.rollback()
+                                    logger.error(f"数据库操作失败: {str(e)}")
+                            else:
+                                # 记录失败执行
+                                TaskExecution.create_failed_record(
+                                    task_id=task.id,
+                                    file_id=file_obj.id,
+                                    error_message=status_code
+                                )
+                                
+                                logger.error(f"文件 {file_obj.original_filename} 上传到 {root_url} 失败: {status_code}")
+
+
                 
-                headers = {
-                    'Content-Type': 'application/json',
-                    'User-Agent': 'FileTaskManager/1.0'
-                }
-                
-                # [4-3.3] 发送HTTP请求
-                response = requests.post(
-                    target_url,
-                    json=payload,
-                    headers=headers,
-                    timeout=30
-                )
-                
-                # [4-3.4] 检查响应状态
-                if response.status_code == 200:
-                    return True, response.text, None
-                else:
-                    error_msg = f"HTTP {response.status_code}: {response.text}"
-                    return False, None, error_msg
-            
-            else:
-                # 其他方法的实现
-                return False, None, f"不支持的执行方法: {method}"
+                except Exception as e:
+                    logger.error(f"上传文件到 {target_url} 时发生错误: {str(e)}")
+                    return False, None, str(e)
+                finally:
+                    dbsession.close()
         
-        except requests.exceptions.Timeout:
-            return False, None, "请求超时"
-        except requests.exceptions.ConnectionError:
-            return False, None, "连接错误"
-        except requests.exceptions.RequestException as e:
-            return False, None, f"请求异常: {str(e)}"
-        except Exception as e:
-            return False, None, f"执行错误: {str(e)}"
+        # 创建线程列表
+        threads = []
+        
+
+        # 按比例分配文件到不同目标URL
+        files_per_target = len(files) // len(target_urls)
+        # 为每个目标URL和文件组合创建线程
+        for i, target_url in enumerate(target_urls):
+            start_idx = i * files_per_target
+            end_idx = start_idx + files_per_target
+            target_files = files[start_idx:end_idx]
+  
+            # 创建上传线程
+            thread = threading.Thread(
+                target=upload_to_target,
+                args=(target_url, target_files),
+                name=f"Upload-{task.id}-{target_url}"
+            )
+            
+            threads.append(thread)
+            thread.start()
+
+        # 前面创建了多个线程来并行上传文件到不同网站
+        # 每个线程都在独立执行上传任务
+        # join() 确保主线程等待所有上传线程都完成
+        # 只有当所有文件都上传完成后，方法才会返回
+        for thread in threads:
+            thread.join()
     
+    def get_site_lock(self, root_url):
+        """
+        [4-4] 获取网站锁
+        确保同一网站的请求串行执行
+        """
+        with session_lock:
+            if root_url not in session_locks:
+                session_locks[root_url] = threading.Lock()
+            return session_locks[root_url]
+    
+
+
     def start_all_running_tasks(self):
         """
-        [4-4] 启动所有运行中的任务
+        [4-8] 启动所有运行中的任务
         系统重启时调用，恢复之前运行的任务
         """
         with self.app.app_context():
@@ -230,7 +362,7 @@ class TaskScheduler:
     
     def get_scheduler_status(self):
         """
-        [4-5] 获取调度器状态信息
+        [4-9] 获取调度器状态信息
         用于管理员监控
         """
         return {
@@ -246,5 +378,5 @@ class TaskScheduler:
             ]
         }
 
-# [4-6] 全局调度器实例
+# [4-10] 全局调度器实例
 task_scheduler = TaskScheduler()

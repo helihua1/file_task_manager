@@ -1,0 +1,396 @@
+{% extends "base.html" %}
+
+{% block title %}{{ task.task_name }} - 任务详情{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="fas fa-tasks me-2"></i>{{ task.task_name }}
+    </h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <a href="{{ url_for('user.task_list') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> 返回列表
+            </a>
+            {% if task.status == 'pending' %}
+                <form method="POST" action="{{ url_for('user.start_task', task_id=task.id) }}" class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-success">
+                        <i class="fas fa-play"></i> 启动任务
+                    </button>
+                </form>
+            {% elif task.status == 'running' %}
+                <form method="POST" action="{{ url_for('user.pause_task', task_id=task.id) }}" class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-warning">
+                        <i class="fas fa-pause"></i> 暂停任务
+                    </button>
+                </form>
+            {% elif task.status == 'paused' %}
+                <form method="POST" action="{{ url_for('user.start_task', task_id=task.id) }}" class="d-inline">
+                    <button type="submit" class="btn btn-sm btn-success">
+                        <i class="fas fa-play"></i> 恢复任务
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 任务状态卡片 -->
+<div class="row mb-4">
+    <div class="col-lg-8">
+        <div class="card shadow">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-info-circle me-2"></i>任务信息
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <td class="fw-bold text-muted">任务名称:</td>
+                                <td>{{ task.task_name }}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold text-muted">目标URL:</td>
+                                <td>
+                                    {% for url in task.target_url.split(',') %}
+                                        <a href="{{ url.strip() }}" target="_blank" class="text-decoration-none">
+                                            {{ url.strip() }} <i class="fas fa-external-link-alt"></i>
+                                        </a><br>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold text-muted">执行方法:</td>
+                                <td>{{ task.execution_method }}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold text-muted">源文件夹:</td>
+                                <td>
+                                    <span class="badge bg-info">
+                                        <i class="fas fa-folder me-1"></i>{{ task.source_folder or '根目录' }}
+                                    </span>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <table class="table table-borderless">
+                            <tr>
+                                <td class="fw-bold text-muted">执行间隔:</td>
+                                <td>{{ task.interval_seconds }} 秒</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold text-muted">开始时间:</td>
+                                <td>{{ task.start_time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold text-muted">结束时间:</td>
+                                <td>
+                                    {% if task.end_time %}
+                                        {{ task.end_time.strftime('%Y-%m-%d %H:%M:%S') }}
+                                    {% else %}
+                                        <span class="text-muted">无限制</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold text-muted">每日开始时间:</td>
+                                <td>
+                                    {% if task.daily_start_time %}
+                                        {{ task.daily_start_time.strftime('%H:%M') }}
+                                    {% else %}
+                                        <span class="text-muted">无限制</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold text-muted">每日执行数量:</td>
+                                <td>{{ task.daily_execution_count }} 个文件</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card shadow">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="fas fa-chart-pie me-2"></i>执行状态
+                </h5>
+            </div>
+            <div class="card-body text-center">
+                <!-- 状态徽章 -->
+                <div class="mb-3">
+                    {% if task.status == 'running' %}
+                        <span class="badge bg-success fs-6">
+                            <i class="fas fa-play me-1"></i>运行中
+                        </span>
+                    {% elif task.status == 'pending' %}
+                        <span class="badge bg-secondary fs-6">
+                            <i class="fas fa-clock me-1"></i>待启动
+                        </span>
+                    {% elif task.status == 'paused' %}
+                        <span class="badge bg-warning fs-6">
+                            <i class="fas fa-pause me-1"></i>已暂停
+                        </span>
+                    {% elif task.status == 'completed' %}
+                        <span class="badge bg-primary fs-6">
+                            <i class="fas fa-check me-1"></i>已完成
+                        </span>
+                    {% elif task.status == 'failed' %}
+                        <span class="badge bg-danger fs-6">
+                            <i class="fas fa-exclamation-triangle me-1"></i>失败
+                        </span>
+                    {% endif %}
+                </div>
+                
+                <!-- 进度条 -->
+                <div class="progress-container mb-3">
+                    <div class="progress" style="height: 25px;">
+                        <div class="progress-bar 
+                            {% if task.status == 'completed' %}bg-success
+                            {% elif task.status == 'running' %}bg-primary
+                            {% elif task.status == 'failed' %}bg-danger
+                            {% else %}bg-secondary{% endif %}" 
+                             role="progressbar" 
+                             style="width: {{ task.get_progress_percentage() }}%"
+                             aria-valuenow="{{ task.get_progress_percentage() }}" 
+                             aria-valuemin="0" 
+                             aria-valuemax="100">
+                        </div>
+                    </div>
+                    <div class="progress-text">
+                        {{ task.get_progress_percentage() }}%
+                    </div>
+                </div>
+                
+                <!-- 统计信息 -->
+                <div class="row text-center">
+                    <div class="col-6">
+                        <div class="border-end">
+                            <h4 class="text-primary mb-1">{{ task.executed_files_count }}</h4>
+                            <small class="text-muted">已执行</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <h4 class="text-info mb-1">{{ task.total_files_count }}</h4>
+                        <small class="text-muted">总文件数</small>
+                    </div>
+                </div>
+                
+                <!-- 剩余文件数 -->
+                <div class="mt-3">
+                    <small class="text-muted">
+                        剩余: {{ task.total_files_count - task.executed_files_count }} 个文件
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 执行历史 -->
+<div class="card shadow">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-history me-2"></i>执行历史
+            <span class="badge bg-secondary ms-2">{{ execution_history|length }} 条记录</span>
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if execution_history %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th width="15%">执行时间</th>
+                            <th width="10%">状态</th>
+                            <th width="20%">文件名</th>
+                            <th width="35%">响应数据</th>
+                            <th width="20%">错误信息</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in execution_history %}
+                        <tr>
+                            <td>
+                                <small class="text-muted">
+                                    {{ record.execution_time }}
+                                </small>
+                            </td>
+                            <td>
+                                {% if record.status == 'success' %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check me-1"></i>成功
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-danger">
+                                        <i class="fas fa-times me-1"></i>失败
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small class="text-muted">
+                                    {% if record.file_id %}
+                                        <i class="fas fa-file-alt me-1"></i>文件 #{{ record.file_id }}
+                                    {% else %}
+                                        <span class="text-muted">未知文件</span>
+                                    {% endif %}
+                                </small>
+                            </td>
+                            <td>
+                                {% if record.response_data %}
+                                    <button class="btn btn-sm btn-outline-info" 
+                                            data-bs-toggle="collapse" 
+                                            data-bs-target="#response-{{ record.id }}" 
+                                            aria-expanded="false">
+                                        <i class="fas fa-eye me-1"></i>查看响应
+                                    </button>
+                                    <div class="collapse mt-2" id="response-{{ record.id }}">
+                                        <div class="card card-body bg-light">
+                                            <pre class="mb-0 small">{{ record.response_data[:200] }}{% if record.response_data|length > 200 %}...{% endif %}</pre>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">无响应数据</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if record.error_message %}
+                                    <button class="btn btn-sm btn-outline-danger" 
+                                            data-bs-toggle="collapse" 
+                                            data-bs-target="#error-{{ record.id }}" 
+                                            aria-expanded="false">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>查看错误
+                                    </button>
+                                    <div class="collapse mt-2" id="error-{{ record.id }}">
+                                        <div class="card card-body bg-light">
+                                            <pre class="mb-0 small text-danger">{{ record.error_message[:200] }}{% if record.error_message|length > 200 %}...{% endif %}</pre>
+                                        </div>
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted">无错误</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">暂无执行记录</h5>
+                <p class="text-muted">任务执行后，这里将显示详细的执行历史</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.progress-container {
+    position: relative;
+}
+
+.progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.75rem;
+    font-weight: bold;
+    color: #333;
+}
+
+.table th {
+    border-top: none;
+    font-weight: 600;
+    color: #5a5c69;
+}
+
+.table td {
+    vertical-align: middle;
+}
+
+.badge {
+    font-size: 0.75rem;
+    padding: 0.375rem 0.75rem;
+}
+
+.card-header {
+    background-color: #f8f9fc;
+    border-bottom: 1px solid #e3e6f0;
+}
+
+.btn-group .btn {
+    margin-right: 5px;
+}
+
+.btn-group .btn:last-child {
+    margin-right: 0;
+}
+
+pre {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.border-end {
+    border-right: 1px solid #dee2e6 !important;
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 自动刷新页面以更新任务状态（每30秒）
+setInterval(function() {
+    // 只刷新运行中的任务
+    if ('{{ task.status }}' === 'running') {
+        location.reload();
+    }
+}, 30000);
+
+// 任务操作确认
+document.addEventListener('click', function(e) {
+    if (e.target.closest('form[action*="start_task"]')) {
+        if (!confirm('确认启动此任务吗？')) {
+            e.preventDefault();
+        }
+    }
+    
+    if (e.target.closest('form[action*="pause_task"]')) {
+        if (!confirm('确认暂停此任务吗？')) {
+            e.preventDefault();
+        }
+    }
+});
+
+// 响应数据和错误信息的展开/收起
+document.addEventListener('DOMContentLoaded', function() {
+    const collapseElements = document.querySelectorAll('[data-bs-toggle="collapse"]');
+    collapseElements.forEach(element => {
+        element.addEventListener('click', function() {
+            const target = document.querySelector(this.getAttribute('data-bs-target'));
+            const icon = this.querySelector('i');
+            
+            if (target.classList.contains('show')) {
+                icon.className = icon.className.replace('fa-eye-slash', 'fa-eye');
+            } else {
+                icon.className = icon.className.replace('fa-eye', 'fa-eye-slash');
+            }
+        });
+    });
+});
+</script>
+{% endblock %} 

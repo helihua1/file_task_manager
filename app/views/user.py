@@ -16,6 +16,7 @@ from app import db
 from app.models.url_context import UrlUpdateContext, UrlMenu
 import shutil
 user = Blueprint('user', __name__, url_prefix='/user')
+from app.scheduler import task_scheduler
 
 def allowed_file(filename):
     """
@@ -316,6 +317,9 @@ def create_task():
         url_contexts_query = url_contexts_query.filter(UrlUpdateContext.name.like(f'%{filter_name}%'))
     url_contexts = url_contexts_query.all()
     
+    # 获取用户文件夹列表
+    user_folders = get_user_folders(current_user.id)
+    
     if request.method == 'POST':
         task_name = request.form.get('task_name')
         target_urls = request.form.getlist('target_url')  # 改为获取多个URL
@@ -324,14 +328,32 @@ def create_task():
         start_time_str = request.form.get('start_time')
         end_time_str = request.form.get('end_time')
         
+        # 新增字段
+        source_folder = request.form.get('source_folder')
+        daily_start_time_str = request.form.get('daily_start_time')
+        daily_execution_count = request.form.get('daily_execution_count', type=int, default=1)
+        
         # [3-2.1] 验证输入数据
-        if not all([task_name, target_urls, interval_seconds, start_time_str]):
+        if not all([task_name, target_urls, interval_seconds, start_time_str, source_folder]):
             flash('请填写所有必填字段', 'error')
-            return render_template('user/create_task.html', url_contexts=url_contexts, filter_name=filter_name)
+            return render_template('user/create_task.html', 
+                                 url_contexts=url_contexts, 
+                                 user_folders=user_folders,
+                                 filter_name=filter_name)
         
         if interval_seconds < 1:
             flash('执行间隔必须大于0秒', 'error')
-            return render_template('user/create_task.html', url_contexts=url_contexts, filter_name=filter_name)
+            return render_template('user/create_task.html', 
+                                 url_contexts=url_contexts, 
+                                 user_folders=user_folders,
+                                 filter_name=filter_name)
+        
+        if daily_execution_count < 1:
+            flash('每日执行数量必须大于0', 'error')
+            return render_template('user/create_task.html', 
+                                 url_contexts=url_contexts, 
+                                 user_folders=user_folders,
+                                 filter_name=filter_name)
         
         try:
             # [3-2.2] 解析时间字符串
@@ -341,20 +363,76 @@ def create_task():
                 end_time = datetime.strptime(end_time_str, '%Y-%m-%dT%H:%M')
                 if end_time <= start_time:
                     flash('结束时间必须晚于开始时间', 'error')
-                    return render_template('user/create_task.html', url_contexts=url_contexts, filter_name=filter_name)
+                    return render_template('user/create_task.html', 
+                                         url_contexts=url_contexts, 
+                                         user_folders=user_folders,
+                                         filter_name=filter_name)
+            
+            # 解析每日开始时间
+            daily_start_time = None
+            if daily_start_time_str:
+                daily_start_time = datetime.strptime(daily_start_time_str, '%H:%M').time()
             
             # [3-2.3] 检查是否有可执行的文件
-            pending_files_count = File.query.filter_by(
-                user_id=current_user.id, 
-                is_executed=False
-            ).count()
+
+            # #             # [3-2.3] 检查是否有可执行的文件
+            # pending_files_query = File.query.filter_by(
+            #     user_id=current_user.id,
+            #     is_executed=False
+            # ).filter(
+            #     db.or_(
+            #         File.file_path.like(f'%/{source_folder}/%'),  # Linux/Mac路径
+            #         File.file_path.like(r'%\\\\' +f'{source_folder}' + r'\\\\%')  # Windows路径
+            #     )
+            # )
+            
+            # # 获取查询结果数量
+            # # 获取查询结果
+            # pending_files = pending_files_query.all()
+            # print(pending_files_query)
+            # pending_files_count = len(pending_files)
+            
+            # # 打印生成的 SQL（移到count()之后）
+            # print(str(pending_files_query.statement.compile(compile_kwargs={"literal_binds": True})))
+            # 
+            # 上面方式查询 结果为0 
+            # 使用原生SQL查询
+            sql = """
+SELECT COUNT(*) as count 
+FROM files 
+WHERE user_id = :user_id 
+AND is_executed = false 
+AND (file_path LIKE :path1 OR file_path LIKE :path2)
+"""
+
+            # 构建路径参数
+            path1 = f'%/{source_folder}/%'  # Linux/Mac路径
+            path2 = f'%\\\\{source_folder}\\\\%'  # Windows路径
+
+            # 执行原生SQL查询
+            result = db.session.execute(db.text(sql), {
+                'user_id': current_user.id,
+                'path1': path1,
+                'path2': path2
+            }).fetchone()
+
+            pending_files_count = result.count if result else 0
+
+            print(f"SQL查询: {sql}")
+            print(f"参数: user_id={current_user.id}, path1={path1}, path2={path2}")
+            print(f"查询结果: {pending_files_count}")
+            
+  
             
             if pending_files_count == 0:
-                flash('没有可执行的文件，请先上传文件', 'error')
-                return redirect(url_for('user.upload_files'))
+                flash(f'指定文件夹 "{source_folder}" 中没有可执行的文件，请先上传文件', 'error')
+                return render_template('user/create_task.html', 
+                                     url_contexts=url_contexts, 
+                                     user_folders=user_folders,
+                                     filter_name=filter_name)
             
-            # [3-2.4] 创建任务记录（这里需要修改支持多个URL）
-            target_url = ','.join(target_urls)  # 暂时用逗号分隔存储多个URL
+            # [3-2.4] 创建任务记录
+            target_url = ','.join(target_urls)  # 用逗号分隔存储多个URL
             task = Task(
                 user_id=current_user.id,
                 task_name=task_name,
@@ -362,7 +440,11 @@ def create_task():
                 execution_method=execution_method,
                 interval_seconds=interval_seconds,
                 start_time=start_time,
-                end_time=end_time
+                end_time=end_time,
+                source_folder=source_folder,
+                daily_start_time=daily_start_time,
+                daily_execution_count=daily_execution_count,
+                # total_files_count=pending_files_count
             )
             
             db.session.add(task)
@@ -378,7 +460,10 @@ def create_task():
             flash('任务创建失败，请重试', 'error')
             current_app.logger.error(f"创建任务失败: {str(e)}")
     
-    return render_template('user/create_task.html', url_contexts=url_contexts, filter_name=filter_name)
+    return render_template('user/create_task.html',
+                         url_contexts=url_contexts,
+                         user_folders=user_folders,
+                         filter_name=filter_name)
 
 @user.route('/tasks/<int:task_id>')
 @login_required
@@ -415,7 +500,10 @@ def start_task(task_id):
         flash('任务已在运行中', 'warning')
     else:
         task.start_task()
+
         flash(f'任务 "{task.task_name}" 已启动', 'success')
+        task_scheduler.add_task_job(task)
+
     
     return redirect(url_for('user.task_detail', task_id=task_id))
 

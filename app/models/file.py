@@ -56,15 +56,15 @@ class File(db.Model):
         except Exception as e:
             raise Exception(f"读取文件失败: {str(e)}")
     
-    def mark_as_executed(self):
-        """
-        [4-2.3] 标记文件为已执行
-        任务执行完成后调用
-        """
-        self.is_executed = True
-        self.executed_at = datetime.utcnow()
-        db.session.commit()
-    
+    # def mark_as_executed(self):
+    #     """
+    #     [4-2.3] 标记文件为已执行
+    #     任务执行完成后调用
+    #     """
+    #     self.is_executed = True
+    #     self.executed_at = datetime.utcnow()
+    #     db.session.commit()
+    #
     def move_to_executed_folder(self):
         """
         [4-2.4] 移动文件到已执行文件夹

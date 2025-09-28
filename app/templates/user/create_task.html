@@ -138,22 +138,56 @@
                         </div>
                     </div>
                     
+                    <!-- 新增字段 -->
                     <div class="row">
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <div class="mb-3">
-                                <label for="interval_seconds" class="form-label">执行间隔（秒） <span class="text-danger">*</span></label>
+                                <label for="source_folder" class="form-label">选择源文件夹 <span class="text-danger">*</span></label>
+                                <select class="form-select" id="source_folder" name="source_folder" required>
+                                    <option value="">请选择文件夹</option>
+                                    {% for folder in user_folders %}
+                                    <option value="{{ folder }}">{{ folder }}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="form-text">选择要执行的文件所在的文件夹</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="daily_start_time" class="form-label">每日开始时间</label>
+                                <input type="time" class="form-control" id="daily_start_time" name="daily_start_time">
+                                <div class="form-text">留空表示立即开始执行</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="daily_execution_count" class="form-label">每个网站每日执行数量 <span class="text-danger">*</span></label>
+                                <input type="number" class="form-control" id="daily_execution_count" name="daily_execution_count" 
+                                       min="1" value="1" required>
+                                <div class="form-text">每个目标网站每天执行的文件数量</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="interval_seconds" class="form-label">每n秒发一篇 <span class="text-danger">*</span></label>
                                 <input type="number" class="form-control" id="interval_seconds" name="interval_seconds" 
                                        min="1" value="60" required>
                                 <div class="form-text">每次执行的间隔时间</div>
                             </div>
                         </div>
-                        <div class="col-md-4">
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="start_time" class="form-label">开始时间 <span class="text-danger">*</span></label>
                                 <input type="datetime-local" class="form-control" id="start_time" name="start_time" required>
                             </div>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <div class="mb-3">
                                 <label for="end_time" class="form-label">结束时间（可选）</label>
                                 <input type="datetime-local" class="form-control" id="end_time" name="end_time">
@@ -169,10 +203,11 @@
                             </h6>
                             <ul class="mb-0">
                                 <li>任务将按照设定的时间间隔自动执行</li>
-                                <li>每次执行会选择一个未处理的文件</li>
+                                <li>每次执行会从指定文件夹中选择一个未处理的文件</li>
                                 <li>文件内容会通过HTTP POST请求发送到目标URL列表中的所有URL</li>
                                 <li>执行成功的文件会被移动到"已执行"文件夹</li>
                                 <li>所有文件执行完毕后任务自动完成</li>
+                                <li>多个网站会并行执行，但同一网站的请求会串行执行以避免冲突</li>
                             </ul>
                         </div>
                     </div>
@@ -280,10 +315,18 @@ document.getElementById('taskForm').addEventListener('submit', function(e) {
     const endTime = document.getElementById('end_time').value;
     const submitBtn = document.getElementById('submitBtn');
     const targetUrls = document.querySelectorAll('input[name="target_url"]');
+    const sourceFolder = document.getElementById('source_folder').value;
     
     // 检查是否有目标URL
     if (targetUrls.length === 0) {
         alert('请至少添加一个目标URL');
+        e.preventDefault();
+        return;
+    }
+    
+    // 检查是否选择了源文件夹
+    if (!sourceFolder) {
+        alert('请选择源文件夹');
         e.preventDefault();
         return;
     }

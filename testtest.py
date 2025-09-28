@@ -17,7 +17,7 @@ if __name__ == '__main__':
             self.password = password
 
 
-    session = requests.Session()
+  
 
     username = "yh1"
     password = "yh123456"
@@ -30,10 +30,12 @@ if __name__ == '__main__':
     menu_value = "1"
     suffix = "e/AcoyKcy7s9"
     root_url = "http://lin.cqleshun.com"
-
+    
+    session = requests.Session()
     upload_date = url_update_context(session, root_url, suffix, username, password)
 
     zixun_page = test.upload_before(upload_date)
+
     for title, text in titles_and_texts.items():
         test.upload(session, zixun_page, upload_date.base_url, menu_value, title, text)
         time.sleep(3)

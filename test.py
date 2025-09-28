@@ -190,7 +190,7 @@ def upload_before(update_context):
     zixun_page,zixun_page_url = login_diguo(update_context)
     #获取js文件中的内容，得到例如[('1', '|-资讯'), ('2', '|-疾病'), ('3', '|-中医'), ('4', '|-两性')]
     js_result = get_js_fr_zixun_page(session, zixun_page,zixun_page_url)
-    print(js_result)
+    print(f'执行upload_before{js_result}')
     return zixun_page
    
 def upload(session,zixun_page,base_url,menu_value,title,text):
@@ -199,7 +199,7 @@ def upload(session,zixun_page,base_url,menu_value,title,text):
     upload_writing_page = session.get(upload_url)
     open_resp(upload_writing_page)
 
-
+    print(f'上传文件名:{title}')
     '''
     上传文章
     '''
@@ -230,6 +230,10 @@ def upload(session,zixun_page,base_url,menu_value,title,text):
     post_url = base_url + "/ecmsinfo.php"
     r = session.post(post_url, data=post_data)
     open_resp(r)
+
+    # 返回状态码
+    return r.status_code
+
       
 
 
@@ -240,7 +244,7 @@ def get_menu(update_context):
     zixun_page, zixun_page_url = login_diguo(update_context)
     # 获取js文件中的内容，得到例如[('1', '|-资讯'), ('2', '|-疾病'), ('3', '|-中医'), ('4', '|-两性')]
     js_result = get_js_fr_zixun_page(session, zixun_page, zixun_page_url)
-    print(js_result)
+    print(f"执行get_menu{js_result}")
     return js_result
 
 if __name__ == '__main__':
