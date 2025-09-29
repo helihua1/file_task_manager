@@ -197,7 +197,7 @@ def upload(session,zixun_page,base_url,menu_value,title,text):
     # 七，获取上传文章页面的url ，menu_value是指定的栏目
     upload_url = get_upload_writings_page_url(zixun_page,base_url,menu_value)
     upload_writing_page = session.get(upload_url)
-    open_resp(upload_writing_page)
+    # open_resp(upload_writing_page)
 
     print(f'上传文件名:{title}')
     '''
@@ -222,7 +222,9 @@ def upload(session,zixun_page,base_url,menu_value,title,text):
         "submit": "提交",
         "copyimg": "1",  # 远程保存图片
         "getfirsttitlepic": "1",  # 取第x张图片为缩略图
-        "getfirsttitlespic": "1"  # 是否缩略图
+        "getfirsttitlespic": "1",  # 是否缩略图
+        "getfirsttitlespicw":"105",#缩略图宽度
+        "getfirsttitlespich":"118" #缩略图高度
 
     }
 

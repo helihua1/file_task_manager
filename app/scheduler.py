@@ -6,8 +6,9 @@ import requests
 import logging
 import threading
 import time
-from datetime import datetime, time as dt_time
+from datetime import datetime, time as dt_time, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from apscheduler.triggers.cron import CronTrigger
 from app.models.task import Task
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 # 全局session锁，用于管理同一网站的并发访问
 session_locks = {}
 session_lock = threading.Lock()
-from sqlalchemy.orm import sessionmaker
+# from sqlalchemy.orm import sessionmaker
 # SessionLocal = sessionmaker(bind=db.engine)
 
 class TaskScheduler:
@@ -54,8 +55,8 @@ class TaskScheduler:
             timezone=app.config.get('SCHEDULER_TIMEZONE', 'UTC'),
             job_defaults={
                 'coalesce': False,
-                # 'max_instances': 100,  # 增加最大实例数
-                # 'misfire_grace_time': 30
+                'max_instances': 10,  # 增加最大实例数
+                'misfire_grace_time': 30
             }
         )
         
@@ -93,12 +94,16 @@ class TaskScheduler:
                 end_date=task.end_time
             )
         else:
-            # 使用间隔触发器
-            trigger = IntervalTrigger(
-                seconds=task.interval_seconds,
-                # start_date=task.start_time,
-                end_date=task.end_time
-            )
+            # # 使用间隔触发器
+            # trigger = IntervalTrigger(
+            #     seconds=task.interval_seconds,
+            #     # start_date=task.start_time,
+            #     end_date=task.end_time
+            # )
+
+            # 2秒后执行一次
+            trigger = DateTrigger(run_date=datetime.now() + timedelta(seconds=2))
+            
 
         # [4-1.9] 添加新的定时job
         self.scheduler.add_job(
@@ -122,12 +127,19 @@ class TaskScheduler:
         if self.scheduler.get_job(job_id):
             self.scheduler.remove_job(job_id)
             logger.info(f"任务 (ID: {task_id}) 已从调度器移除")
-    
+
     def execute_task(self, task_id):
         """
         [4-2] 执行单个任务
         调度器定时调用的核心执行方法
         """
+
+        '''
+        执行器机制：APScheduler默认使用ThreadPoolExecutor，每个job在独立的线程中执行。
+        执行方式：每个 execute_task 在 APScheduler 的线程池中运行
+        并发控制：受 max_instances: 10 限制
+        职责：获取文件列表，调用文件上传逻辑
+        '''
         with self.app.app_context():
             try:
                 # [4-2.1] 获取任务信息
@@ -139,20 +151,14 @@ class TaskScheduler:
                 # [4-2.2] 获取目标URL列表
                 target_urls = task.target_url.split(',')
                 
-                # [4-2.3] 获取要执行的文件（根据每日执行数量乘以目标URL数量）
-                files_to_execute = []
-                for _ in range(task.daily_execution_count*len(target_urls)):
-                    file_to_execute = task.get_next_file()
-                    if file_to_execute:
-                        files_to_execute.append(file_to_execute)
-                    else:
-                        break
+                # [4-2.3] 安全获取要执行的文件（防止文件竞争）
+                files_to_execute = self.get_files_safely(task, target_urls)
                 
                 if not files_to_execute:
-                    # 没有更多文件可执行，完成任务
-                    task.complete_task()
+                    # 没有更多文件可执行，暂停任务
+                    task.pause_task()
                     self.remove_task_job(task_id)
-                    logger.info(f"任务 {task.task_name} 已完成，所有文件执行完毕")
+                    logger.info(f"任务 {task.task_name} 暂停，没有文件可以被执行了")
                     return
                 
                 # [4-2.4] 并行执行文件上传到多个目标网站
@@ -169,7 +175,113 @@ class TaskScheduler:
                         self.remove_task_job(task_id)
                 except Exception:
                     pass
-    
+
+    def get_files_safely(self, task, target_urls):
+        """
+        [4-2.3.1] 安全获取文件列表
+        使用数据库锁防止文件竞争
+        """
+        from app.models.file import File
+        import threading
+        import time
+        
+        files_to_execute = []
+        total_files_needed = task.daily_execution_count * len(target_urls)
+        
+        # 使用数据库事务确保原子性
+        for _ in range(total_files_needed):
+            file_obj = self.get_next_file_atomically(task)
+            if file_obj:
+                files_to_execute.append(file_obj)
+            else:
+                break
+        
+        return files_to_execute
+
+    def get_next_file_atomically(self, task):
+        """
+        [4-2.3.2] 原子性获取下一个文件
+        使用数据库锁和事务确保文件不会被重复分配
+        """
+        from app.models.file import File
+        import os
+
+        # 获取数据库会话
+        def get_session_local():
+            """动态获取 SessionLocal，确保在应用上下文中创建"""
+            from sqlalchemy.orm import sessionmaker
+            return sessionmaker(bind=db.engine)
+
+        dbsession = get_session_local()()
+
+        
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            try:
+                # 使用普通事务，不使用嵌套事务
+                with dbsession.begin():
+                    # 使用SELECT FOR UPDATE锁定文件记录
+                    if task.source_folder:
+                        linux_pattern = f'%{os.sep}{task.source_folder}{os.sep}%'
+                        windows_pattern = f'%\\\\{task.source_folder}\\\\%'
+
+                        # FOR UPDATE是 行级锁
+                        sql = """
+                        SELECT * FROM files 
+                        WHERE user_id = :user_id 
+                        AND is_executed = 0 
+                        AND is_executing = 0
+                        AND (file_path LIKE :linux_pattern OR file_path LIKE :windows_pattern)
+                        ORDER BY id ASC 
+                        LIMIT 1
+                        FOR UPDATE
+                        """
+                        
+                        result = dbsession.execute(
+                            db.text(sql), 
+                            {
+                                'user_id': task.user_id,
+                                'linux_pattern': linux_pattern,
+                                'windows_pattern': windows_pattern
+                            }
+                        ).fetchone()
+
+                    if result:
+                        file_id = result.id
+                        
+                        # 更新文件状态为正在处理
+                        update_sql = """
+                        UPDATE files 
+                        SET is_executing = 1
+                        WHERE id = :file_id AND is_executed = 0 AND is_executing = 0
+                        """
+                        
+                        update_result = dbsession.execute(
+                            db.text(update_sql), 
+                            {'file_id': file_id}
+                        )
+                        
+                        if update_result.rowcount > 0:
+                            # 事务会自动提交，返回文件对象
+                            return File.query.get(file_id)
+                        else:
+                            # 文件已被其他任务获取，重试
+                            retry_count += 1
+                            time.sleep(0.1)
+                            continue
+                    else:
+                        return None
+                        
+            except Exception as e:
+                logger.error(f"获取文件时发生错误: {str(e)}")
+                retry_count += 1
+                time.sleep(0.1)
+                continue
+        
+        return None
+
     def execute_parallel_uploads(self, task, files, target_urls):
         """
         [4-3] 并行执行文件上传
@@ -177,10 +289,7 @@ class TaskScheduler:
         """
         import threading
 
-        def get_session_local():
-            """动态获取 SessionLocal，确保在应用上下文中创建"""
-            from sqlalchemy.orm import sessionmaker
-            return sessionmaker(bind=db.engine)
+
 
         def upload_to_target(target_url, file_objs):
             """
@@ -193,6 +302,10 @@ class TaskScheduler:
                 # 访问应用配置
                 # 没有这个环境，就像在没有网络的地方尝试上网一样，会报错。
                 # 所以 with self.app.app_context(): 就是在子线程中"搭建"这个工作环境，让数据库操作能够正常进行
+            def get_session_local():
+                """动态获取 SessionLocal，确保在应用上下文中创建"""
+                from sqlalchemy.orm import sessionmaker
+                return sessionmaker(bind=db.engine)
             with self.app.app_context():
 
                 # 第一个括号 ()：调用 get_session_local() 函数，返回一个 sessionmaker 对象
@@ -257,6 +370,7 @@ class TaskScheduler:
 
                                     # 标记文件为已执行
                                     file_obj.is_executed = True
+                                    file_obj.is_executing = False  # 重置正在处理状态
                                     file_obj.executed_at = datetime.utcnow()
                                     
                                     # 移动文件到已执行文件夹
@@ -314,6 +428,9 @@ class TaskScheduler:
             end_idx = start_idx + files_per_target
             target_files = files[start_idx:end_idx]
   
+
+            # todo 后续改为： 使用线程池而不是创建新线程
+
             # 创建上传线程
             thread = threading.Thread(
                 target=upload_to_target,

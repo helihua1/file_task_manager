@@ -24,6 +24,7 @@ class File(db.Model):
     
     # [1-2.1.2] 文件执行状态字段
     is_executed = db.Column(db.Boolean, default=False, comment='是否已执行')
+    is_executing = db.Column(db.Boolean, default=False, comment='是否正在执行')
     executed_at = db.Column(db.DateTime, comment='执行完成时间')
     
     # [1-2.1.3] 关联关系
