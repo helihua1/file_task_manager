@@ -64,6 +64,30 @@ class UrlMenu(db.Model):
         return f'<UrlMenu {self.menu_value}: {self.menu_text}>'
 
 
+class BatchUrlFind(db.Model):
+    """
+    批量URL查询结果模型
+    存储批量查询的临时结果，避免cookie过大问题
+    """
+    __tablename__ = 'batch_url_find'
+    
+    id = db.Column(db.Integer, primary_key=True, comment='主键ID')
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='用户ID')
+    name = db.Column(db.String(100), nullable=False, comment='URL名称')
+    root_url = db.Column(db.String(255), nullable=False, comment='根域名')
+    suffix = db.Column(db.String(255), nullable=False, comment='后缀路径')
+    username = db.Column(db.String(80), nullable=False, comment='用户名')
+    password = db.Column(db.String(128), nullable=False, comment='密码')
+    status = db.Column(db.String(20), nullable=False, comment='状态：success/error/no_menu')
+    error_message = db.Column(db.Text, nullable=True, comment='错误信息')
+    menu_count = db.Column(db.Integer, default=0, comment='菜单数量')
+    menu_data = db.Column(db.Text, nullable=True, comment='菜单数据JSON')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment='创建时间')
+    
+    def __repr__(self):
+        return f'<BatchUrlFind {self.name}: {self.status}>'
+
+
 # 为了兼容testtest.py中的类，创建一个简单的类
 class url_update_context:
     """

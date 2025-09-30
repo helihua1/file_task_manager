@@ -90,6 +90,7 @@ def create_app(config_name=None):
     with app.app_context():
         # 导入所有模型以确保它们被注册
         from app.models import User, File, Task, TaskExecution
+        from app.models.url_context import UrlUpdateContext, UrlMenu, BatchUrlFind
         
         db.create_all()
         

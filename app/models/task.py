@@ -41,9 +41,7 @@ class Task(db.Model):
     
     # [1-3.1.6] 关联关系
     task_executions = db.relationship('TaskExecution', backref='task', lazy='dynamic',
-                                    cascade='all, delete-orphan'
-                                      )
-                                      # , comment='任务执行记录')
+                                    cascade='all, delete-orphan')
     
     def __init__(self, user_id, task_name, target_url, execution_method, 
                  interval_seconds, start_time, end_time=None, source_folder=None,
@@ -93,7 +91,6 @@ class Task(db.Model):
         将任务状态设置为运行中
         """
         self.status = 'running'
-
         self.updated_at = datetime.utcnow()
         db.session.commit()
     
@@ -162,24 +159,6 @@ class Task(db.Model):
             if result:
                 return File.query.get(result.id)
             return None
-        # else:
-        #     # 如果没有指定源文件夹，使用简单的原生SQL
-        #     sql = """
-        #     SELECT * FROM files 
-        #     WHERE user_id = :user_id 
-        #     AND is_executed = 0 
-        #     ORDER BY id ASC 
-        #     LIMIT 1
-        #     """
-            
-        #     result = db.session.execute(
-        #         db.text(sql), 
-        #         {'user_id': self.user_id}
-        #     ).fetchone()
-            
-        #     if result:
-        #         return File.query.get(result.id)
-        #     return None
     
     def increment_executed_count(self):
         """
@@ -237,21 +216,6 @@ class Task(db.Model):
         # 检查任务状态
         if self.status not in ['running']:
             return False
-        
-        # # 检查开始时间
-        # if now < self.start_time:
-        #     return False
-        #
-        # # 检查结束时间
-        # if self.end_time and now > self.end_time:
-        #     self.complete_task()
-        #     return False
-        
-        # # 检查每日执行时间
-        # if self.daily_start_time:
-        #     current_time = now.time()
-        #     if current_time < self.daily_start_time:
-        #         return False
         
         return True
     

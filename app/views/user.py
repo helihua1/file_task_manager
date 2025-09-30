@@ -549,15 +549,35 @@ def url_management():
     # 获取所有URL上下文数据
     url_contexts = UrlUpdateContext.query.all()
     
-    # 获取临时数据用于显示菜单结果
-    from flask import session as flask_session
-    menu_data = flask_session.get('temp_menu_data')
-    url_data = flask_session.get('temp_url_data')
+    # 获取用户的批量查询结果
+    from app.models.url_context import BatchUrlFind
+    batch_results = BatchUrlFind.query.filter_by(user_id=current_user.id).all()
+    
+    # 转换格式以兼容前端
+    batch_results_data = []
+    for result in batch_results:
+        menu_data = []
+        if result.menu_data:
+            try:
+                menu_data = json.loads(result.menu_data)
+            except:
+                menu_data = []
+        
+        batch_results_data.append({
+            'name': result.name,
+            'root_url': result.root_url,
+            'suffix': result.suffix,
+            'username': result.username,
+            'password': result.password,
+            'status': result.status,
+            'error': result.error_message,
+            'menu_count': result.menu_count,
+            'menu_data': menu_data
+        })
     
     return render_template('user/url_management.html', 
                          url_contexts=url_contexts,
-                         menu_data=menu_data,
-                         url_data=url_data)
+                         batch_results=batch_results_data)
 
 @user.route('/api/test_url_menu', methods=['POST'])
 @login_required
@@ -753,4 +773,268 @@ def update_url_context_name(context_id):
     except Exception as e:
         db.session.rollback()
         flash(f'更新失败: {str(e)}', 'error')
+        return redirect(url_for('user.url_management'))
+
+@user.route('/batch_upload_excel', methods=['POST'])
+@login_required
+def batch_upload_excel():
+    """
+    批量上传Excel文件处理
+    读取Excel文件，解析每行数据，获取菜单数据
+    """
+    try:
+        # 检查是否有文件上传
+        if 'excel_file' not in request.files:
+            flash('请选择Excel文件', 'error')
+            return redirect(url_for('user.url_management'))
+        
+        file = request.files['excel_file']
+        if file.filename == '':
+            flash('请选择Excel文件', 'error')
+            return redirect(url_for('user.url_management'))
+        
+        # 检查文件扩展名
+        if not file.filename.lower().endswith(('.xlsx', '.xls')):
+            flash('请上传Excel文件(.xlsx或.xls格式)', 'error')
+            return redirect(url_for('user.url_management'))
+        
+        # 导入pandas处理Excel
+        import pandas as pd
+        import io
+        import test
+        from app.models.url_context import url_update_context, BatchUrlFind
+        import requests
+        import json
+        
+        # 读取Excel文件
+        file_content = file.read()
+        df = pd.read_excel(io.BytesIO(file_content))
+        
+        # 检查列数
+        if len(df.columns) < 5:
+            flash('Excel文件格式错误：需要至少5列数据', 'error')
+            return redirect(url_for('user.url_management'))
+        
+        # 先清除用户之前的批量查询记录
+        BatchUrlFind.query.filter_by(user_id=current_user.id).delete()
+        db.session.commit()
+        
+        # 处理每行数据
+        for index, row in df.iterrows():
+            try:
+                # 获取每行数据
+                name = str(row.iloc[0]).strip() if pd.notna(row.iloc[0]) else f'未命名_{index+1}'
+                root_url = str(row.iloc[1]).strip() if pd.notna(row.iloc[1]) else ''
+                suffix = str(row.iloc[2]).strip() if pd.notna(row.iloc[2]) else ''
+                username = str(row.iloc[3]).strip() if pd.notna(row.iloc[3]) else ''
+                password = str(row.iloc[4]).strip() if pd.notna(row.iloc[4]) else ''
+                
+                # 验证必要字段
+                if not all([root_url, suffix, username, password]):
+                    batch_record = BatchUrlFind(
+                        user_id=current_user.id,
+                        name=name,
+                        root_url=root_url,
+                        suffix=suffix,
+                        username=username,
+                        password=password,
+                        status='error',
+                        error_message='缺少必要字段',
+                        menu_count=0
+                    )
+                    db.session.add(batch_record)
+                    continue
+                
+                # 检查是否已存在相同的URL上下文
+                existing = UrlUpdateContext.query.filter_by(
+                    root_url=root_url, 
+                    suffix=suffix
+                ).first()
+                
+                if existing:
+                    batch_record = BatchUrlFind(
+                        user_id=current_user.id,
+                        name=name,
+                        root_url=root_url,
+                        suffix=suffix,
+                        username=username,
+                        password=password,
+                        status='error',
+                        error_message='URL上下文已存在',
+                        menu_count=0
+                    )
+                    db.session.add(batch_record)
+                    continue
+                
+                # 尝试获取菜单数据
+                try:
+                    session = requests.Session()
+                    upload_context = url_update_context(session, root_url, suffix, username, password)
+                    menu_data = test.get_menu(upload_context)
+                    
+                    if menu_data and len(menu_data) > 0:
+                        batch_record = BatchUrlFind(
+                            user_id=current_user.id,
+                            name=name,
+                            root_url=root_url,
+                            suffix=suffix,
+                            username=username,
+                            password=password,
+                            status='success',
+                            error_message=None,
+                            menu_count=len(menu_data),
+                            menu_data=json.dumps(menu_data, ensure_ascii=False)
+                        )
+                    else:
+                        batch_record = BatchUrlFind(
+                            user_id=current_user.id,
+                            name=name,
+                            root_url=root_url,
+                            suffix=suffix,
+                            username=username,
+                            password=password,
+                            status='no_menu',
+                            error_message='未获取到菜单数据',
+                            menu_count=0
+                        )
+                    db.session.add(batch_record)
+                        
+                except Exception as e:
+                    batch_record = BatchUrlFind(
+                        user_id=current_user.id,
+                        name=name,
+                        root_url=root_url,
+                        suffix=suffix,
+                        username=username,
+                        password=password,
+                        status='error',
+                        error_message=f'获取菜单失败: {str(e)}',
+                        menu_count=0
+                    )
+                    db.session.add(batch_record)
+                    
+            except Exception as e:
+                batch_record = BatchUrlFind(
+                    user_id=current_user.id,
+                    name=f'第{index+1}行',
+                    root_url='',
+                    suffix='',
+                    username='',
+                    password='',
+                    status='error',
+                    error_message=f'处理行数据失败: {str(e)}',
+                    menu_count=0
+                )
+                db.session.add(batch_record)
+        
+        # 提交所有记录
+        db.session.commit()
+        
+        flash(f'Excel文件处理完成，共处理 {len(df)} 条记录', 'success')
+        return redirect(url_for('user.url_management'))
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Excel文件处理失败: {str(e)}', 'error')
+        return redirect(url_for('user.url_management'))
+
+@user.route('/confirm_batch_upload', methods=['POST'])
+@login_required
+def confirm_batch_upload():
+    """
+    确认批量添加URL上下文
+    根据用户选择的结果批量添加到数据库
+    """
+    try:
+        from app.models.url_context import BatchUrlFind
+        import json
+        
+        # 获取用户选择的项目
+        selected_indices = request.form.getlist('selected_items')
+        
+        if not selected_indices:
+            flash('请选择要添加的项目', 'error')
+            return redirect(url_for('user.url_management'))
+        
+        # 处理选中的项目
+        success_count = 0
+        error_count = 0
+        
+        for index_str in selected_indices:
+            try:
+                index = int(index_str)
+                batch_record = BatchUrlFind.query.filter_by(
+                    user_id=current_user.id
+                ).offset(index).first()
+                
+                if batch_record and batch_record.status in ['success', 'no_menu']:
+                    # 创建URL上下文
+                    url_context = UrlUpdateContext(
+                        name=batch_record.name,
+                        root_url=batch_record.root_url,
+                        suffix=batch_record.suffix,
+                        username=batch_record.username,
+                        password=batch_record.password
+                    )
+                    db.session.add(url_context)
+                    db.session.flush()  # 获取ID
+                    
+                    # 添加菜单数据（如果有的话）
+                    if batch_record.menu_data:
+                        try:
+                            menu_data = json.loads(batch_record.menu_data)
+                            for menu_item in menu_data:
+                                menu_value = menu_item[0]
+                                menu_text = menu_item[1]
+                                
+                                url_menu = UrlMenu(
+                                    context_id=url_context.id,
+                                    menu_value=menu_value,
+                                    menu_text=menu_text
+                                )
+                                db.session.add(url_menu)
+                        except:
+                            pass
+                    
+                    success_count += 1
+                else:
+                    error_count += 1
+                    
+            except Exception as e:
+                error_count += 1
+                print(f'处理第{index_str}项时出错: {str(e)}')
+        
+        # 删除所有批量查询记录
+        BatchUrlFind.query.filter_by(user_id=current_user.id).delete()
+        
+        # 提交事务
+        db.session.commit()
+        
+        flash(f'批量添加完成：成功 {success_count} 项，失败 {error_count} 项', 'success')
+        return redirect(url_for('user.url_management'))
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'批量添加失败: {str(e)}', 'error')
+        return redirect(url_for('user.url_management'))
+
+@user.route('/clear_batch_results', methods=['POST'])
+@login_required
+def clear_batch_results():
+    """
+    清除用户的批量查询结果
+    """
+    try:
+        from app.models.url_context import BatchUrlFind
+        
+        # 删除用户的所有批量查询记录
+        deleted_count = BatchUrlFind.query.filter_by(user_id=current_user.id).delete()
+        db.session.commit()
+        
+        flash(f'已清除 {deleted_count} 条查询记录', 'success')
+        return redirect(url_for('user.url_management'))
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'清除失败: {str(e)}', 'error')
         return redirect(url_for('user.url_management'))
