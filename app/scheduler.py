@@ -123,6 +123,7 @@ class TaskScheduler:
         [4-1.10] 从调度器移除任务
         暂停或停止任务时调用
         """
+        # todo 增加is_excuting字段要改回0！！！
         job_id = f"task_{task_id}"
         if self.scheduler.get_job(job_id):
             self.scheduler.remove_job(job_id)
@@ -158,7 +159,7 @@ class TaskScheduler:
                     # 没有更多文件可执行，暂停任务
                     task.pause_task()
                     self.remove_task_job(task_id)
-                    logger.info(f"任务 {task.task_name} 暂停，没有文件可以被执行了")
+                    logger.info(f"任务 {task.task_name} 暂停，没有足够文件可以被执行了！！！！")
                     return
                 
                 # [4-2.4] 并行执行文件上传到多个目标网站
@@ -194,6 +195,10 @@ class TaskScheduler:
             if file_obj:
                 files_to_execute.append(file_obj)
             else:
+                logger.info(f"没有更多文件可执行，暂停任务 {task.task_name}")
+                print(f"--------------------------------没有更多文件可执行，暂停任务 {task.task_name}")
+                task.pause_task()
+                self.remove_task_job(task.id)
                 break
         
         return files_to_execute

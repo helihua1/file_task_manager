@@ -158,8 +158,9 @@ def login_diguo(update_context):
         # 五、跳转链接得到主页
         resp_final = session.get(target_url)
         # open_resp(resp_final)
+        time.sleep(0.1)
 
-        # 得到‘增加信息’标签中跳转到的链接
+        # 为了得到‘增加信息’标签中跳转到的链接
         # 使用BeautifulSoup解析HTML
         soup = BeautifulSoup(resp_final.text, 'html.parser')
 
@@ -223,8 +224,8 @@ def upload(session,zixun_page,base_url,menu_value,title,text):
         "copyimg": "1",  # 远程保存图片
         "getfirsttitlepic": "1",  # 取第x张图片为缩略图
         "getfirsttitlespic": "1",  # 是否缩略图
-        "getfirsttitlespicw":"105",#缩略图宽度
-        "getfirsttitlespich":"118" #缩略图高度
+        "getfirsttitlespicw":"300",#缩略图宽度
+        "getfirsttitlespich":"200" #缩略图高度
 
     }
 
@@ -246,7 +247,7 @@ def get_menu(update_context):
     zixun_page, zixun_page_url = login_diguo(update_context)
     # 获取js文件中的内容，得到例如[('1', '|-资讯'), ('2', '|-疾病'), ('3', '|-中医'), ('4', '|-两性')]
     js_result = get_js_fr_zixun_page(session, zixun_page, zixun_page_url)
-    print(f"执行get_menu{js_result}")
+    print(f"执行get_menu得到：{js_result}")
     return js_result
 
 if __name__ == '__main__':
