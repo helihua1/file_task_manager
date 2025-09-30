@@ -22,7 +22,7 @@
             <div class="card-body">
                 <!-- 过滤表单 -->
                 <form method="GET" class="mb-3">
-                    <div class="input-group">
+                    <div class="input-group mb-2">
                         <input type="text" class="form-control" name="filter_name" 
                                value="{{ filter_name or '' }}" placeholder="按名称过滤...">
                         <button class="btn btn-outline-secondary" type="submit">
@@ -34,10 +34,17 @@
                         </a>
                         {% endif %}
                     </div>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="auto-check-filter" 
+                               placeholder="输入文本自动勾选匹配的菜单，可以输入多个关键词，用空格分隔...">
+                        <button type="button" class="btn btn-outline-info" id="clear-auto-check">
+                            <i class="fas fa-eraser"></i> 清除勾选
+                        </button>
+                    </div>
                 </form>
 
                 <!-- URL表格 -->
-                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                <div class="table-responsive" style="max-height: 800px; overflow-y: auto;">
                     <table class="table table-sm table-hover">
                         <thead class="table-light sticky-top">
                             <tr>
@@ -383,6 +390,45 @@ document.getElementById('interval_seconds').addEventListener('change', function(
     if (suggestion) {
         e.target.setAttribute('title', suggestion);
     }
+});
+
+// 自动勾选菜单功能
+document.getElementById('auto-check-filter').addEventListener('input', function(e) {
+    const filterText = e.target.value.toLowerCase().trim();
+    const checkboxes = document.querySelectorAll('.menu-checkbox');
+    
+    // 如果输入为空，取消所有勾选
+    if (filterText === '') {
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+        });
+        return;
+    }
+    
+    // 将输入文本按空格分割成多个关键词
+    const keywords = filterText.split(/\s+/).filter(keyword => keyword.length > 0);
+    
+    checkboxes.forEach(checkbox => {
+        const menuText = checkbox.dataset.menuText.toLowerCase();
+        
+        // 检查菜单文本是否包含任意一个关键词
+        const matches = keywords.some(keyword => menuText.includes(keyword));
+        
+        if (matches) {
+            checkbox.checked = true;
+        } else {
+            checkbox.checked = false;
+        }
+    });
+});
+
+// 清除自动勾选
+document.getElementById('clear-auto-check').addEventListener('click', function() {
+    document.getElementById('auto-check-filter').value = '';
+    const checkboxes = document.querySelectorAll('.menu-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+    });
 });
 </script>
 {% endblock %}

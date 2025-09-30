@@ -16,7 +16,7 @@ class Task(db.Model):
     id = db.Column(db.Integer, primary_key=True, comment='任务ID主键')
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, comment='所属用户ID')
     task_name = db.Column(db.String(200), nullable=False, comment='任务名称')
-    target_url = db.Column(db.String(500), nullable=False, comment='目标网站URL')
+    target_url = db.Column(db.String(15000), nullable=False, comment='目标网站URL')
     execution_method = db.Column(db.String(100), nullable=False, comment='执行方法名称')
     
     # [1-3.1.2] 任务调度配置字段
