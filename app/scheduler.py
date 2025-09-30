@@ -28,6 +28,8 @@ session_lock = threading.Lock()
 # from sqlalchemy.orm import sessionmaker
 # SessionLocal = sessionmaker(bind=db.engine)
 
+
+
 class TaskScheduler:
     """
     [4-1] 任务调度管理器
@@ -55,8 +57,8 @@ class TaskScheduler:
             timezone=app.config.get('SCHEDULER_TIMEZONE', 'UTC'),
             job_defaults={
                 'coalesce': False,
-                'max_instances': 10,  # 增加最大实例数
-                'misfire_grace_time': 30
+                'max_instances': 50,  # 增加最大实例数
+                'misfire_grace_time': 100
             }
         )
         
@@ -290,12 +292,15 @@ class TaskScheduler:
     def execute_parallel_uploads(self, task, files, target_urls):
         """
         [4-3] 并行执行文件上传
-        为每个目标URL创建线程，但同一网站的请求会串行执行
+        使用线程池限制并发数量
         """
-        import threading
+        import concurrent.futures
+        
+        # 从应用配置中读取线程池大小
+        max_workers = self.app.config.get('MAX_WORKERS', 100)
+        
 
-
-
+        
         def upload_to_target(target_url, file_objs):
             """
             上传文件到指定目标URL
@@ -421,37 +426,28 @@ class TaskScheduler:
                 finally:
                     dbsession.close()
         
-        # 创建线程列表
-        threads = []
-        
-
-        # 按比例分配文件到不同目标URL
-        files_per_target = len(files) // len(target_urls)
-        # 为每个目标URL和文件组合创建线程
-        for i, target_url in enumerate(target_urls):
-            start_idx = i * files_per_target
-            end_idx = start_idx + files_per_target
-            target_files = files[start_idx:end_idx]
-  
-
-            # todo 后续改为： 使用线程池而不是创建新线程
-
-            # 创建上传线程
-            thread = threading.Thread(
-                target=upload_to_target,
-                args=(target_url, target_files),
-                name=f"Upload-{task.id}-{target_url}"
-            )
+        # 使用线程池而不是创建无限线程
+        # Flask-SQLAlchemy 自动应用：根据 Flask-SQLAlchemy 的官方文档，当您在配置类中定义了 SQLALCHEMY_ENGINE_OPTIONS 时，Flask-SQLAlchemy 会自动将这些参数传递给 sqlalchemy.create_engine() 函数。
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = []
             
-            threads.append(thread)
-            thread.start()
-
-        # 前面创建了多个线程来并行上传文件到不同网站
-        # 每个线程都在独立执行上传任务
-        # join() 确保主线程等待所有上传线程都完成
-        # 只有当所有文件都上传完成后，方法才会返回
-        for thread in threads:
-            thread.join()
+            for target_url in target_urls:
+                # 按比例分配文件
+                files_per_target = len(files) // len(target_urls)
+                start_idx = target_urls.index(target_url) * files_per_target
+                end_idx = start_idx + files_per_target
+                target_files = files[start_idx:end_idx]
+                
+                # 提交任务到线程池
+                future = executor.submit(upload_to_target, target_url, target_files)
+                futures.append(future)
+                time.sleep(0.3)
+            # 等待所有任务完成
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    result = future.result()
+                except Exception as e:
+                    logger.error(f"上传任务失败: {str(e)}")
     
     def get_site_lock(self, root_url):
         """

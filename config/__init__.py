@@ -38,6 +38,15 @@ class Config:
     # [WebSocket配置]
     SOCKETIO_ASYNC_MODE = 'threading'
     
+    # 添加数据库连接池配置
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_size': 50,
+        'max_overflow': 100,
+        'pool_timeout': 60,
+        'pool_recycle': 3600,
+        'pool_pre_ping': True
+    }
+    
     @staticmethod
     def init_app(app):
         pass
