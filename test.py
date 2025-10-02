@@ -7,6 +7,8 @@ from bs4 import BeautifulSoup
 import webbrowser
 import tempfile
 import os
+
+from werkzeug.local import T
 def open_resp(resp):
     # 假设 resp.text 是你的 HTML 内容
     html_content = resp.text  # 替换为实际 HTML 内容
@@ -143,7 +145,7 @@ def login_diguo(update_context):
 
     redirect_url = get_meta_jump_url(resp_post,login_url)
 
-    # 四。得到跳转页面.
+    # 四。得到meta跳转页面.
     resp_redirect = session.get(redirect_url)
     # open_resp(resp_redirect)
 
@@ -163,7 +165,34 @@ def login_diguo(update_context):
         # 为了得到‘增加信息’标签中跳转到的链接
         # 使用BeautifulSoup解析HTML
         soup = BeautifulSoup(resp_final.text, 'html.parser')
+        
+        # 找到包含是否是gbk信息的页面
+        # 查找指定的链接元素
+        target_link = soup.find('a', href=True, title="帝国网站管理系统")
+        if target_link:
+            href = target_link.get('href')
+            # 使用base_url和href拼接得到新的网址
+            new_url = urljoin(base_url + '/', href)
+            print(f"找到目标链接: {new_url}")
+            
+            # 进入新页面
+            resp_new_page = session.get(new_url)
+            soup_new = BeautifulSoup(resp_new_page.text, 'html.parser')
+            
+            # 查找是否有 <td>GBK</td>
+            gbk_td = soup_new.find('td', string='GBK')
+            if gbk_td:
+                print('这个网站是gbk')
+                ifGBK = True
+            elif  soup_new.find('td', string='UTF-8'):
+                print('这个网站是utf-8')
+                ifGBK = False
+            else:
+                print('这个网站编码类型未知')
+                ifGBK = False
 
+
+        
         # 查找包含"增加信息"文本的TD标签
         td = soup.find('td', string='增加信息')
         if td and td.get('onclick'):
@@ -175,7 +204,7 @@ def login_diguo(update_context):
                 # 六，从主页跳转到增加信息的栏目选择页面
                 zixun_page = session.get(zixun_page_url)
                 # open_resp(zixun_page)
-                return zixun_page,zixun_page_url
+                return zixun_page,zixun_page_url,ifGBK
         else:
             print("从''增加信息''提取URL失败")
     else:
@@ -185,16 +214,15 @@ def upload_before(update_context):
     session = update_context.session
     base_url = update_context.base_url
 
+ 
 
-
-
-    zixun_page,zixun_page_url = login_diguo(update_context)
+    zixun_page,zixun_page_url,ifGBK = login_diguo(update_context)
     #获取js文件中的内容，得到例如[('1', '|-资讯'), ('2', '|-疾病'), ('3', '|-中医'), ('4', '|-两性')]
     js_result = get_js_fr_zixun_page(session, zixun_page,zixun_page_url)
     print(f'执行upload_before{js_result}')
-    return zixun_page
+    return zixun_page,ifGBK
    
-def upload(session,zixun_page,base_url,menu_value,title,text):
+def upload(session,zixun_page,base_url,menu_value,title,text,ifGBK=False):
     # 七，获取上传文章页面的url ，menu_value是指定的栏目
     upload_url = get_upload_writings_page_url(zixun_page,base_url,menu_value)
     upload_writing_page = session.get(upload_url)
@@ -228,6 +256,9 @@ def upload(session,zixun_page,base_url,menu_value,title,text):
         "getfirsttitlespich":"200" #缩略图高度
 
     }
+    if ifGBK:
+        post_data["newstext"] = text.encode("gbk")
+        post_data["title"] = title.encode("gbk")
 
     # 八，提交文章
     post_url = base_url + "/ecmsinfo.php"
@@ -243,8 +274,7 @@ def upload(session,zixun_page,base_url,menu_value,title,text):
 def get_menu(update_context):
     session = update_context.session
 
-
-    zixun_page, zixun_page_url = login_diguo(update_context)
+    zixun_page, zixun_page_url, ifGBK = login_diguo(update_context)  
     # 获取js文件中的内容，得到例如[('1', '|-资讯'), ('2', '|-疾病'), ('3', '|-中医'), ('4', '|-两性')]
     js_result = get_js_fr_zixun_page(session, zixun_page, zixun_page_url)
     print(f"执行get_menu得到：{js_result}")
@@ -264,8 +294,8 @@ if __name__ == '__main__':
   
     session = requests.Session()
 
-    username = "yh1"
-    password = "yh123456"
+    username = ""
+    password = ""
 
     titles_and_texts = {"测试title122222": "测试text1222222", 
     "测试title333333": "测试text3333333",
@@ -273,18 +303,18 @@ if __name__ == '__main__':
     }
     sleeptime = 3
     menu_value = "1"
-    suffix = "e/AcoyKcy7s9"
-    root_url = "http://lin.cqleshun.com"
+    suffix = ""
+    root_url = ""
 
 
     upload_date = url_update_context(session,root_url,suffix,username,password)
     
    
 
-    # zixun_page = upload_before(upload_date)
-    # for title,text in titles_and_texts.items():
-    #     upload(session,zixun_page,upload_date.base_url,menu_value,title,text)
-    #     time.sleep(3)
+    zixun_page = upload_before(upload_date)
+    for title,text in titles_and_texts.items():
+        upload(session,zixun_page,upload_date.base_url,menu_value,title,text)
+        time.sleep(3)
 
 
 

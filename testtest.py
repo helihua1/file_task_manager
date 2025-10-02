@@ -17,19 +17,19 @@ if __name__ == '__main__':
             self.password = password
 
 
-  
 
-    username = "yh1"
-    password = "yh123456"
+    username = ""
+    password = ""
 
-    titles_and_texts = {"测试title122222": "测试text1222222",
-                        "测试title333333": "测试text3333333",
+    titles_and_texts = {
+        # "测试title122222": "测试text1222222",
+        #                 "测试title333333": "测试text3333333",
                         "测试title4444444": "测试text4444444"
                         }
     sleeptime = 3
     menu_value = "1"
-    suffix = "e/AcoyKcy7s9"
-    root_url = "http://lin.cqleshun.com"
+    suffix = ""
+    root_url = ""
     
     session = requests.Session()
     upload_date = url_update_context(session, root_url, suffix, username, password)
@@ -37,8 +37,8 @@ if __name__ == '__main__':
     zixun_page = test.upload_before(upload_date)
 
     for title, text in titles_and_texts.items():
-        test.upload(session, zixun_page, upload_date.base_url, menu_value, title, text)
-        time.sleep(3)
+        test.upload(session, zixun_page, upload_date.base_url, menu_value, title, text,True)
+        # time.sleep(3)
     # test.get_menu(upload_date)
 
 
