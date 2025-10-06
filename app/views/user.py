@@ -575,9 +575,16 @@ def url_management():
             'menu_data': menu_data
         })
     
+    # 从session中获取临时菜单数据
+    from flask import session as flask_session
+    menu_data = flask_session.get('temp_menu_data')
+    url_data = flask_session.get('temp_url_data')
+    
     return render_template('user/url_management.html', 
                          url_contexts=url_contexts,
-                         batch_results=batch_results_data)
+                         batch_results=batch_results_data,
+                         menu_data=menu_data,
+                         url_data=url_data)
 
 @user.route('/api/test_url_menu', methods=['POST'])
 @login_required

@@ -349,7 +349,7 @@ class TaskScheduler:
                         upload_date = url_update_context(session, url_context.root_url, url_context.suffix, url_context.username, url_context.password)
 
                         # [4-5.2] 执行upload_before逻辑
-                        zixun_page = test.upload_before(upload_date)
+                        zixun_page,ifGBK = test.upload_before(upload_date)
 
 
                         if  zixun_page.status_code != 200:
@@ -367,7 +367,7 @@ class TaskScheduler:
                                 
                                 
                                 # [4-5.3] 执行upload逻辑
-                                status_code = test.upload(session, zixun_page, upload_date.base_url, menu_value, file_title, file_content)
+                                status_code = test.upload(session, zixun_page, upload_date.base_url, menu_value, file_title, file_content,ifGBK)
                                 time.sleep(task.interval_seconds)
                             except Exception as e:
                                 # f"执行错误: {str(e)}" 是在 upload_to_target 函数内部，这个函数作为线程目标函数运行。线程的返回值不会被主线程捕获或处理。
