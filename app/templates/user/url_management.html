@@ -11,8 +11,19 @@
     <!-- 左侧：已添加的URL列表 -->
     <div class="col-md-6">
         <div class="card">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">已添加的URL列表</h5>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="toggleAllUrlCheckboxes()">
+                        <i class="bi bi-check-square"></i> 全选/取消全选
+                    </button>
+                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="batchDelete()" id="batch-delete-btn" disabled>
+                        <i class="bi bi-trash"></i> 批量删除
+                    </button>
+                    <button type="button" class="btn btn-outline-success btn-sm" onclick="batchExport()" id="batch-export-btn" disabled>
+                        <i class="bi bi-download"></i> 批量导出
+                    </button>
+                </div>
             </div>
             <div class="card-body">
                 <div id="url-list">
@@ -20,30 +31,48 @@
                         <div class="list-group">
                             {% for context in url_contexts %}
                             <div class="list-group-item">
-                                <div class="d-flex w-100 justify-content-between align-items-start">
-                                    <div class="flex-grow-1">
-                                        <!-- 名称列，支持双击编辑 -->
-                                        <div class="mb-2">
-                                            <form method="POST" action="{{ url_for('user.update_url_context_name', context_id=context.id) }}" 
-                                                  style="display: inline;" class="d-inline-block">
-                                                <input type="text" 
-                                                       name="name" 
-                                                       value="{{ context.name or '未命名' }}" 
-                                                       class="form-control form-control-sm d-inline-block" 
-                                                       style="width: 150px; border: 1px solid #ddd; background: #f8f9fa;"
-                                                       onblur="this.form.submit()"
-                                                       onkeypress="if(event.key==='Enter'){this.form.submit(); return false;}"
-                                                       title="双击或按Enter保存">
-                                            </form>
+                                <div class="d-flex w-100 justify-content-between align-items-center">
+                                    <div class="d-flex align-items-center">
+                                        <!-- 勾选框 -->
+                                        <div class="me-3">
+                                            <input type="checkbox" class="form-check-input url-checkbox" 
+                                                   value="{{ context.id }}" 
+                                                   onchange="updateBatchButtons()">
                                         </div>
-                                        <h6 class="mb-1">{{ context.root_url }} + {{ context.suffix }}</h6>
-                                        {% if context.menus %}
-                                            <div class="ms-2 mt-2">
-                                                {% for menu in context.menus %}
-                                                <span class="badge bg-secondary me-1">{{ menu.menu_text }}</span>
-                                                {% endfor %}
+                                        <div class="flex-grow-1 d-flex align-items-center">
+                                            <!-- 名称列，支持双击编辑 -->
+                                            <div class="me-3">
+                                                <form method="POST" action="{{ url_for('user.update_url_context_name', context_id=context.id) }}" 
+                                                      style="display: inline;" class="d-inline-block">
+                                                    <input type="text" 
+                                                           name="name" 
+                                                           value="{{ context.name or '未命名' }}" 
+                                                           class="form-control form-control-sm d-inline-block" 
+                                                           style="width: 120px; border: 1px solid #ddd; background: #f8f9fa;"
+                                                           onblur="this.form.submit()"
+                                                           onkeypress="if(event.key==='Enter'){this.form.submit(); return false;}"
+                                                           title="双击或按Enter保存">
+                                                </form>
                                             </div>
-                                        {% endif %}
+                                            <!-- URL显示 -->
+                                            <div class="me-3">
+                                                <h6 class="mb-0 text-truncate" style="max-width: 200px;" title="{{ context.root_url }}">{{ context.root_url }}</h6>
+                                            </div>
+                                            <!-- 菜单按钮 -->
+                                            {% if context.menus %}
+                                                <div class="dropdown">
+                                                    <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" 
+                                                            data-bs-toggle="dropdown" aria-expanded="false">
+                                                        菜单 ({{ context.menus.count() }})
+                                                    </button>
+                                                    <ul class="dropdown-menu">
+                                                        {% for menu in context.menus %}
+                                                        <li><span class="dropdown-item-text">{{ menu.menu_text }}</span></li>
+                                                        {% endfor %}
+                                                    </ul>
+                                                </div>
+                                            {% endif %}
+                                        </div>
                                     </div>
                                     <div class="ms-3">
                                         <form method="POST" action="{{ url_for('user.delete_url_context', context_id=context.id) }}" 
@@ -248,7 +277,76 @@
     {% endwith %}
 </div>
 
+<!-- 批量删除表单 -->
+<form id="batch-delete-form" method="POST" action="{{ url_for('user.batch_delete_url_contexts') }}" style="display: none;">
+    <input type="hidden" id="selected-ids-input" name="selected_ids" value="">
+</form>
+
 <script>
+// 全选/取消全选功能（URL列表）
+function toggleAllUrlCheckboxes() {
+    const checkboxes = document.querySelectorAll('.url-checkbox');
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = !allChecked;
+    });
+    
+    updateBatchButtons();
+}
+
+// 更新批量操作按钮状态
+function updateBatchButtons() {
+    const checkboxes = document.querySelectorAll('.url-checkbox:checked');
+    const batchDeleteBtn = document.getElementById('batch-delete-btn');
+    const batchExportBtn = document.getElementById('batch-export-btn');
+    
+    const hasSelection = checkboxes.length > 0;
+    
+    if (batchDeleteBtn) batchDeleteBtn.disabled = !hasSelection;
+    if (batchExportBtn) batchExportBtn.disabled = !hasSelection;
+}
+
+// 批量删除
+function batchDelete() {
+    const checkboxes = document.querySelectorAll('.url-checkbox:checked');
+    if (checkboxes.length === 0) {
+        alert('请先选择要删除的项目');
+        return;
+    }
+    
+    if (confirm(`确定要删除选中的 ${checkboxes.length} 个项目吗？此操作不可恢复！`)) {
+        const selectedIds = Array.from(checkboxes).map(cb => cb.value);
+        document.getElementById('selected-ids-input').value = selectedIds.join(',');
+        document.getElementById('batch-delete-form').submit();
+    }
+}
+
+// 批量导出
+function batchExport() {
+    const checkboxes = document.querySelectorAll('.url-checkbox:checked');
+    if (checkboxes.length === 0) {
+        alert('请先选择要导出的项目');
+        return;
+    }
+    
+    const selectedIds = Array.from(checkboxes).map(cb => cb.value);
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{{ url_for("user.batch_export_url_contexts") }}';
+    
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'selected_ids';
+    input.value = selectedIds.join(',');
+    
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+}
+
+// 原有的批量上传相关函数
 function toggleAllCheckboxes() {
     const selectAllCheckbox = document.getElementById('select-all');
     const itemCheckboxes = document.querySelectorAll('.item-checkbox');
@@ -266,27 +364,34 @@ function updateSelectedCount() {
     const countElement = document.getElementById('selected-count');
     const confirmBtn = document.getElementById('confirm-btn');
     
-    countElement.textContent = `已选择 ${selectedCount} 项`;
-    confirmBtn.disabled = selectedCount === 0;
+    if (countElement) {
+        countElement.textContent = `已选择 ${selectedCount} 项`;
+    }
+    if (confirmBtn) {
+        confirmBtn.disabled = selectedCount === 0;
+    }
     
     // 更新全选复选框状态
     const allCheckboxes = document.querySelectorAll('.item-checkbox');
     const selectAllCheckbox = document.getElementById('select-all');
     
-    if (selectedCount === 0) {
-        selectAllCheckbox.indeterminate = false;
-        selectAllCheckbox.checked = false;
-    } else if (selectedCount === allCheckboxes.length) {
-        selectAllCheckbox.indeterminate = false;
-        selectAllCheckbox.checked = true;
-    } else {
-        selectAllCheckbox.indeterminate = true;
+    if (selectAllCheckbox) {
+        if (selectedCount === 0) {
+            selectAllCheckbox.indeterminate = false;
+            selectAllCheckbox.checked = false;
+        } else if (selectedCount === allCheckboxes.length) {
+            selectAllCheckbox.indeterminate = false;
+            selectAllCheckbox.checked = true;
+        } else {
+            selectAllCheckbox.indeterminate = true;
+        }
     }
 }
 
 // 页面加载时初始化
 document.addEventListener('DOMContentLoaded', function() {
     updateSelectedCount();
+    updateBatchButtons();
 });
 </script>
 {% endblock %}

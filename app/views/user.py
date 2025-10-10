@@ -1045,3 +1045,113 @@ def clear_batch_results():
         db.session.rollback()
         flash(f'清除失败: {str(e)}', 'error')
         return redirect(url_for('user.url_management'))
+
+@user.route('/batch_delete_url_contexts', methods=['POST'])
+@login_required
+def batch_delete_url_contexts():
+    """
+    批量删除URL上下文
+    根据选中的ID列表批量删除URL上下文和关联的菜单数据
+    """
+    try:
+        # 获取选中的ID列表
+        selected_ids_str = request.form.get('selected_ids', '')
+        if not selected_ids_str:
+            flash('请选择要删除的项目', 'error')
+            return redirect(url_for('user.url_management'))
+        
+        # 解析ID列表
+        selected_ids = [int(id_str.strip()) for id_str in selected_ids_str.split(',') if id_str.strip()]
+        
+        if not selected_ids:
+            flash('没有有效的选择项', 'error')
+            return redirect(url_for('user.url_management'))
+        
+        # 查找并删除URL上下文
+        deleted_count = 0
+        for context_id in selected_ids:
+            url_context = UrlUpdateContext.query.get(context_id)
+            if url_context:
+                db.session.delete(url_context)
+                deleted_count += 1
+        
+        db.session.commit()
+        
+        flash(f'成功删除 {deleted_count} 个URL上下文', 'success')
+        return redirect(url_for('user.url_management'))
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'批量删除失败: {str(e)}', 'error')
+        return redirect(url_for('user.url_management'))
+
+@user.route('/batch_export_url_contexts', methods=['POST'])
+@login_required
+def batch_export_url_contexts():
+    """
+    批量导出URL上下文为Excel文件
+    导出格式：name, root_url, suffix, username, password, menus
+    """
+    try:
+        from flask import make_response
+        import pandas as pd
+        import io
+        
+        # 获取选中的ID列表
+        selected_ids_str = request.form.get('selected_ids', '')
+        if not selected_ids_str:
+            flash('请选择要导出的项目', 'error')
+            return redirect(url_for('user.url_management'))
+        
+        # 解析ID列表
+        selected_ids = [int(id_str.strip()) for id_str in selected_ids_str.split(',') if id_str.strip()]
+        
+        if not selected_ids:
+            flash('没有有效的选择项', 'error')
+            return redirect(url_for('user.url_management'))
+        
+        # 查询选中的URL上下文
+        url_contexts = UrlUpdateContext.query.filter(UrlUpdateContext.id.in_(selected_ids)).all()
+        
+        if not url_contexts:
+            flash('没有找到要导出的数据', 'error')
+            return redirect(url_for('user.url_management'))
+        
+        # 准备导出数据
+        export_data = []
+        for context in url_contexts:
+            # 获取菜单数据
+            menus = UrlMenu.query.filter_by(context_id=context.id).all()
+            menu_texts = [menu.menu_text for menu in menus]
+            menus_str = '，'.join(menu_texts) if menu_texts else ''
+            
+            export_data.append({
+                'name': context.name or '',
+                'root_url': context.root_url,
+                'suffix': context.suffix,
+                'username': context.username,
+                'password': context.password,
+                'menus': menus_str
+            })
+        
+        # 创建DataFrame
+        df = pd.DataFrame(export_data)
+        
+        # 创建Excel文件
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='URL数据', index=False)
+        
+        output.seek(0)
+        
+        # 创建响应
+        response = make_response(output.getvalue())
+        response.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        response.headers['Content-Disposition'] = f'attachment; filename=url_contexts_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+        
+        flash(f'成功导出 {len(export_data)} 条数据', 'success')
+        return response
+        
+    except Exception as e:
+        flash(f'批量导出失败: {str(e)}', 'error')
+        return redirect(url_for('user.url_management'))
