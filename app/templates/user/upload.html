@@ -61,14 +61,21 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label for="files" class="form-label">选择文件</label>
-                        <!-- 传文件一：用户点击时，浏览器会调用操作系统的文件选择对话框 当用户选择文件后，浏览器会：
-                        读取文件的元数据（文件名、大小、类型）到内存
-                        不会立即读取文件内容，只保留文件引用-->
-                        <input type="file" class="form-control" id="files" name="files" multiple accept=".txt" required>
+                        <label for="files" class="form-label">选择文件或文件夹</label>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <input type="file" class="form-control" id="files" name="files" multiple accept=".txt">
+                            </div>
+                            <div class="col-md-6">
+                                <button type="button" class="btn btn-outline-primary w-100" onclick="document.getElementById('folderInput').click()">
+                                    <i class="fas fa-folder-open me-1"></i>选择文件夹
+                                </button>
+                                <input type="file" id="folderInput" webkitdirectory directory style="display:none">
+                            </div>
+                        </div>
                         <div class="form-text">
                             <i class="fas fa-info-circle me-1"></i>
-                            只支持TXT格式文件，可以选择多个文件同时上传
+                            可以选择多个文件，或选择文件夹（自动提取所有txt文件）
                         </div>
                     </div>
                     
@@ -170,12 +177,8 @@
 
 {% block extra_js %}
 <script>
-// 传文件二：
-// 通过 e.target.files 获取 FileList 对象（这是浏览器在内存中的文件引用）
-// 读取 file.name 和 file.size 属性（这些数据已在内存中，不需要磁盘IO）
-// 此时仍未读取文件的实际内容
-document.getElementById('files').addEventListener('change', function(e) {
-    const files = e.target.files;
+// 显示文件列表
+function displayFiles(files) {
     const fileList = document.getElementById('fileList');
     const selectedFiles = document.getElementById('selectedFiles');
     const uploadBtn = document.getElementById('uploadBtn');
@@ -183,7 +186,7 @@ document.getElementById('files').addEventListener('change', function(e) {
     if (files.length > 0) {
         selectedFiles.innerHTML = '';
         
-        Array.from(files).forEach(function(file, index) {
+        Array.from(files).forEach(function(file) {
             const li = document.createElement('li');
             li.className = 'mb-1';
             
@@ -221,10 +224,32 @@ document.getElementById('files').addEventListener('change', function(e) {
         fileList.style.display = 'none';
         uploadBtn.disabled = true;
     }
+}
+
+// 文件选择
+document.getElementById('files').addEventListener('change', function(e) {
+    displayFiles(e.target.files);
+});
+
+// 文件夹选择
+document.getElementById('folderInput').addEventListener('change', function(e) {
+    const allFiles = Array.from(e.target.files);
+    // webkitdirectory 属性会自动递归遍历整个文件夹树，浏览器原生 API 的功能
+    const txtFiles = allFiles.filter(file => file.name.toLowerCase().endsWith('.txt'));
+    
+    if (txtFiles.length > 0) {
+        const dataTransfer = new DataTransfer();
+        txtFiles.forEach(file => dataTransfer.items.add(file));
+        document.getElementById('files').files = dataTransfer.files;
+        displayFiles(txtFiles);
+    } else {
+        alert('所选文件夹中没有txt文件');
+    }
 });
 
 function clearFiles() {
     document.getElementById('files').value = '';
+    document.getElementById('folderInput').value = '';
     document.getElementById('fileList').style.display = 'none';
     document.getElementById('uploadBtn').disabled = true;
 }

@@ -163,7 +163,8 @@ def upload_files():
         for file in files:
             if file and allowed_file(file.filename):
                 try:
-                    original_filename = file.filename
+                    # 只保留文件名，去除可能的路径信息
+                    original_filename = os.path.basename(file.filename)
                     file_path = os.path.join(target_path, original_filename)
                     
                     # [2-2.5] 保存文件到磁盘
