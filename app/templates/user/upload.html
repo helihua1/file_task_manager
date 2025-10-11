@@ -61,6 +61,9 @@
                     </div>
                     
                     <div class="mb-3">
+                        <!-- 传文件一：用户点击时，浏览器会调用操作系统的文件选择对话框 当用户选择文件后，浏览器会：
+                        读取文件的元数据（文件名、大小、类型）到内存
+                        不会立即读取文件内容，只保留文件引用-->
                         <label for="files" class="form-label">选择文件或文件夹</label>
                         <div class="row">
                             <div class="col-md-6">
@@ -177,6 +180,10 @@
 
 {% block extra_js %}
 <script>
+// 传文件二：
+// 通过 e.target.files 获取 FileList 对象（这是浏览器在内存中的文件引用）
+// 读取 file.name 和 file.size 属性（这些数据已在内存中，不需要磁盘IO）
+// 此时仍未读取文件的实际内容
 // 显示文件列表
 function displayFiles(files) {
     const fileList = document.getElementById('fileList');
