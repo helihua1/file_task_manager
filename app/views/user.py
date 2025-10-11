@@ -172,7 +172,8 @@ def upload_files():
                         original_filename=original_filename,
                         filename=original_filename,
                         file_path=file_path,
-                        file_size=file_size
+                        file_size=file_size,
+                        folder=target_folder
                     )
                     db.session.add(file_record)
                     uploaded_count += 1
@@ -248,12 +249,11 @@ def get_folders():
 def file_list():
     """
     [2-3] 文件列表显示
-    展示用户上传的所有文件，支持分页和筛选
+    按文件夹分组展示用户上传的所有文件，显示文件夹统计信息
     """
-    page = request.args.get('page', 1, type=int)
     status_filter = request.args.get('status', 'all')
     
-    # [2-3.1] 构建查询条件
+    # [2-3.1] 获取所有文件并按文件夹分组
     query = File.query.filter_by(user_id=current_user.id)
     
     if status_filter == 'executed':
@@ -261,11 +261,32 @@ def file_list():
     elif status_filter == 'pending':
         query = query.filter_by(is_executed=False)
     
-    # [2-3.2] 分页查询
-    files = query.order_by(File.upload_time.desc())\
-                 .paginate(page=page, per_page=20, error_out=False)
+    all_files = query.order_by(File.folder.asc(), File.upload_time.desc()).all()
     
-    return render_template('user/files.html', files=files, status_filter=status_filter)
+    # [2-3.2] 按文件夹分组
+    folders_data = {}
+    for file in all_files:
+        folder_name = file.folder if file.folder else '根目录'
+        
+        if folder_name not in folders_data:
+            folders_data[folder_name] = {
+                'files': [],
+                'total_count': 0,
+                'executed_count': 0,
+                'pending_count': 0
+            }
+        
+        folders_data[folder_name]['files'].append(file)
+        folders_data[folder_name]['total_count'] += 1
+        
+        if file.is_executed:
+            folders_data[folder_name]['executed_count'] += 1
+        else:
+            folders_data[folder_name]['pending_count'] += 1
+    
+    return render_template('user/files.html', 
+                         folders_data=folders_data, 
+                         status_filter=status_filter)
 
 @user.route('/files/delete/<int:file_id>', methods=['POST'])
 @login_required
@@ -546,6 +567,8 @@ def url_management():
     URL管理页面
     显示已添加的URL列表和添加新URL的界面
     """
+    import json
+    
     # 获取所有URL上下文数据
     url_contexts = UrlUpdateContext.query.all()
     

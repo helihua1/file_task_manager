@@ -20,6 +20,7 @@ class File(db.Model):
     original_filename = db.Column(db.String(255), nullable=False, comment='原始文件名')
     file_path = db.Column(db.String(500), nullable=False, comment='文件存储路径')
     file_size = db.Column(db.Integer, nullable=False, comment='文件大小(字节)')
+    folder = db.Column(db.String(255), comment='所属文件夹名称')
     upload_time = db.Column(db.DateTime, default=datetime.utcnow, comment='文件上传时间')
     
     # [1-2.1.2] 文件执行状态字段
@@ -33,7 +34,7 @@ class File(db.Model):
                                       )
                                       # , comment='文件执行记录')
     
-    def __init__(self, user_id, filename, original_filename, file_path, file_size):
+    def __init__(self, user_id, filename, original_filename, file_path, file_size, folder=None):
         """
         [1-2.1.4] 文件对象初始化
         """
@@ -42,6 +43,7 @@ class File(db.Model):
         self.original_filename = original_filename
         self.file_path = file_path
         self.file_size = file_size
+        self.folder = folder
     
     def read_content(self):
         """

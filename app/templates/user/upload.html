@@ -23,7 +23,7 @@
                         <div class="row">
                             <div class="col-md-8">
                                 <select class="form-select" id="target_folder" name="target_folder">
-                                    <option value="">根目录</option>
+                                    <!-- <option value="">根目录</option> -->
                                     {% for folder in user_folders %}
                                     <option value="{{ folder }}">{{ folder }}</option>
                                     {% endfor %}
@@ -87,7 +87,7 @@
                     <li>单个文件大小不超过10MB</li>
                     <li>可以同时选择多个文件进行批量上传</li>
                     <li>上传的文件将用于后续的任务执行</li>
-                    <li>可以选择上传到指定文件夹或根目录</li>
+                    <li>上传到指定文件夹</li>
                     <li>文件夹只能单层，不支持嵌套结构</li>
                 </ul>
             </div>

@@ -26,6 +26,13 @@
     .page-link.disabled { color: #aaa; border-color: #eee; pointer-events: none; background: #fafafa; }
     .empty { padding: 24px; text-align: center; color: #666; background: #fff; border: 1px dashed #ddd; border-radius: 6px; }
     .meta { color: #666; font-size: 12px; }
+    .folder-header { display: flex; justify-content: space-between; align-items: center; }
+    .toggle-btn { background: transparent; border: none; cursor: pointer; padding: 4px 8px; font-size: 14px; color: #1677ff; transition: transform 0.3s; }
+    .toggle-btn:hover { opacity: 0.7; }
+    .toggle-btn.collapsed { transform: rotate(0deg); }
+    .toggle-btn.expanded { transform: rotate(90deg); }
+    .file-list-content { display: none; margin-top: 8px; }
+    .file-list-content.show { display: block; }
   </style>
 </head>
 <body>
@@ -46,86 +53,86 @@
       </div>
     </div>
 
-    {% if files.items %}
-      <table>
-        <thead>
-          <tr>
-            <th style="width: 40%;">文件名</th>
-            <th style="width: 15%;">大小</th>
-            <th style="width: 25%;">上传时间</th>
-            <th style="width: 10%;">状态</th>
-            <th style="width: 10%;">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for f in files.items %}
-            <tr>
-              <td title="{{ f.file_path }}">{{ f.filename }}</td>
-              <td>
-                {% if f.file_size is not none %}
-                  {% if f.file_size >= 1024 * 1024 %}
-                    {{ ('%.2f' % (f.file_size / (1024 * 1024))) }} MB
-                  {% elif f.file_size >= 1024 %}
-                    {{ ('%.2f' % (f.file_size / 1024)) }} KB
-                  {% else %}
-                    {{ f.file_size }} B
-                  {% endif %}
-                {% else %}
-                  -
-                {% endif %}
-              </td>
-              <td>
-                {% if f.upload_time %}
-                  {{ f.upload_time.strftime('%Y-%m-%d %H:%M:%S') }}
-                {% else %}
-                  -
-                {% endif %}
-              </td>
-              <td>
-                {% if f.is_executed %}
-                  <span class="status done">已执行</span>
-                {% else %}
-                  <span class="status pending">待执行</span>
-                {% endif %}
-              </td>
-              <td class="actions">
-                <form method="post" action="{{ url_for('user.delete_file', file_id=f.id) }}" onsubmit="return confirm('确认删除该文件吗？');">
-                  <button class="btn danger" type="submit">删除</button>
-                </form>
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-
-      <div class="toolbar" style="margin-top: 8px;">
-        <div class="meta">
-          第 {{ files.page }} / {{ files.pages }} 页，共 {{ files.total }} 条
+    {% if folders_data %}
+      {% for folder_name, folder_info in folders_data.items() %}
+        <div style="margin-bottom: 24px;">
+          <div style="background: #f8f9fa; padding: 12px 16px; border-radius: 6px; border-left: 4px solid #1677ff; cursor: pointer;" 
+               onclick="toggleFolder('folder-{{ loop.index }}')">
+            <div class="folder-header">
+              <div>
+                <h3 style="margin: 0 0 4px 0; font-size: 16px; color: #333;">
+                  📁 {{ folder_name }}
+                </h3>
+                <div style="font-size: 12px; color: #666;">
+                  总文件数: <strong>{{ folder_info.total_count }}</strong> | 
+                  已执行: <span style="color: #067d3d;">{{ folder_info.executed_count }}</span> | 
+                  待执行: <span style="color: #8a5a00;">{{ folder_info.pending_count }}</span>
+                </div>
+              </div>
+              <button class="toggle-btn collapsed" id="toggle-folder-{{ loop.index }}" onclick="event.stopPropagation();">▶</button>
+            </div>
+          </div>
+          
+          <div class="file-list-content" id="folder-{{ loop.index }}">
+          {% if folder_info.files %}
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 40%;">文件名</th>
+                  <th style="width: 15%;">大小</th>
+                  <th style="width: 25%;">上传时间</th>
+                  <th style="width: 10%;">状态</th>
+                  <th style="width: 10%;">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for f in folder_info.files %}
+                  <tr>
+                    <td title="{{ f.file_path }}">{{ f.filename }}</td>
+                    <td>
+                      {% if f.file_size is not none %}
+                        {% if f.file_size >= 1024 * 1024 %}
+                          {{ ('%.2f' % (f.file_size / (1024 * 1024))) }} MB
+                        {% elif f.file_size >= 1024 %}
+                          {{ ('%.2f' % (f.file_size / 1024)) }} KB
+                        {% else %}
+                          {{ f.file_size }} B
+                        {% endif %}
+                      {% else %}
+                        -
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if f.upload_time %}
+                        {{ f.upload_time.strftime('%Y-%m-%d %H:%M:%S') }}
+                      {% else %}
+                        -
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if f.is_executed %}
+                        <span class="status done">已执行</span>
+                      {% else %}
+                        <span class="status pending">待执行</span>
+                      {% endif %}
+                    </td>
+                    <td class="actions">
+                      <form method="post" action="{{ url_for('user.delete_file', file_id=f.id) }}" onsubmit="return confirm('确认删除该文件吗？');">
+                        <button class="btn danger" type="submit">删除</button>
+                      </form>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          {% else %}
+            <div class="empty" style="margin: 0;">
+              该文件夹暂无文件
+            </div>
+          {% endif %}
+          </div>
         </div>
-        <div class="pagination">
-          <a class="page-link {% if not files.has_prev %}disabled{% endif %}"
-             href="{% if files.has_prev %}{{ url_for('user.file_list', page=files.prev_num, status=status_filter) }}{% else %}#{% endif %}">
-            上一页
-          </a>
-
-          {# 中间页码（带省略号） #}
-          {% set last = 0 %}
-          {% for p in files.iter_pages(left_edge=1, left_current=2, right_current=2, right_edge=1) %}
-            {% if p %}
-              <a class="page-link {% if p == files.page %}active{% endif %}"
-                 href="{{ url_for('user.file_list', page=p, status=status_filter) }}">{{ p }}</a>
-              {% set last = p %}
-            {% else %}
-              <span class="page-link disabled">...</span>
-            {% endif %}
-          {% endfor %}
-
-          <a class="page-link {% if not files.has_next %}disabled{% endif %}"
-             href="{% if files.has_next %}{{ url_for('user.file_list', page=files.next_num, status=status_filter) }}{% else %}#{% endif %}">
-            下一页
-          </a>
-        </div>
-      </div>
+      {% endfor %}
     {% else %}
       <div class="empty">
         暂无文件。
@@ -133,5 +140,24 @@
       </div>
     {% endif %}
   </div>
+  
+  <script>
+    function toggleFolder(folderId) {
+      const content = document.getElementById(folderId);
+      const toggleBtn = document.getElementById('toggle-' + folderId);
+      
+      if (content.classList.contains('show')) {
+        content.classList.remove('show');
+        toggleBtn.classList.remove('expanded');
+        toggleBtn.classList.add('collapsed');
+        toggleBtn.textContent = '▶';
+      } else {
+        content.classList.add('show');
+        toggleBtn.classList.remove('collapsed');
+        toggleBtn.classList.add('expanded');
+        toggleBtn.textContent = '▼';
+      }
+    }
+  </script>
 </body>
 </html>
