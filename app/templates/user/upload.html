@@ -16,6 +16,20 @@
                 </h5>
             </div>
             <div class="card-body">
+
+                <!--  传文件三：enctype="multipart/form-data" ，它告诉浏览器使用分段上传编码
+                点击提交后，浏览器会：
+                从磁盘分块读取文件内容到内存缓冲区
+                将文件内容编码为 multipart/form-data 格式
+                通过HTTP请求的请求体发送到服务器
+                数据格式类似： 
+                     ------WebKitFormBoundary...
+                Content-Disposition: form-data; name="files"; filename="example.txt"
+                Content-Type: text/plain
+
+                [文件的二进制内容]
+                ------WebKitFormBoundary...
+                -->
                 <form method="POST" enctype="multipart/form-data" id="uploadForm">
                     <!-- 文件夹选择区域 -->
                     <div class="mb-3">
@@ -48,6 +62,9 @@
                     
                     <div class="mb-3">
                         <label for="files" class="form-label">选择文件</label>
+                        <!-- 传文件一：用户点击时，浏览器会调用操作系统的文件选择对话框 当用户选择文件后，浏览器会：
+                        读取文件的元数据（文件名、大小、类型）到内存
+                        不会立即读取文件内容，只保留文件引用-->
                         <input type="file" class="form-control" id="files" name="files" multiple accept=".txt" required>
                         <div class="form-text">
                             <i class="fas fa-info-circle me-1"></i>
@@ -153,6 +170,10 @@
 
 {% block extra_js %}
 <script>
+// 传文件二：
+// 通过 e.target.files 获取 FileList 对象（这是浏览器在内存中的文件引用）
+// 读取 file.name 和 file.size 属性（这些数据已在内存中，不需要磁盘IO）
+// 此时仍未读取文件的实际内容
 document.getElementById('files').addEventListener('change', function(e) {
     const files = e.target.files;
     const fileList = document.getElementById('fileList');

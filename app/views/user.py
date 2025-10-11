@@ -133,7 +133,11 @@ def upload_files():
         if 'files' not in request.files:
             flash('请选择要上传的文件', 'error')
             return redirect(request.url)
-        
+
+        # 传文件四：
+        # request.files.getlist('files') 从HTTP请求中获取文件流
+        # Werkzeug会将上传的数据存储在临时文件或内存缓冲区中
+        # 返回的 file 对象是 FileStorage 类型，它是一个类文件对象（file-like object）
         files = request.files.getlist('files')
         if not files or files[0].filename == '':
             flash('请选择要上传的文件', 'error')
@@ -163,7 +167,7 @@ def upload_files():
                     file_path = os.path.join(target_path, original_filename)
                     
                     # [2-2.5] 保存文件到磁盘
-                    file.save(file_path)
+                    file.save(file_path)    # 核心IO操作
                     file_size = os.path.getsize(file_path)
                     
                     # [2-2.6] 保存文件信息到数据库
