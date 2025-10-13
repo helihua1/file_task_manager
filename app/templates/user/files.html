@@ -91,12 +91,10 @@
                     <td title="{{ f.file_path }}">{{ f.filename }}</td>
                     <td>
                       {% if f.file_size is not none %}
-                        {% if f.file_size >= 1024 * 1024 %}
-                          {{ ('%.2f' % (f.file_size / (1024 * 1024))) }} MB
-                        {% elif f.file_size >= 1024 %}
+
+                        {% if f.file_size >= 1024 %}
                           {{ ('%.2f' % (f.file_size / 1024)) }} KB
-                        {% else %}
-                          {{ f.file_size }} B
+
                         {% endif %}
                       {% else %}
                         -

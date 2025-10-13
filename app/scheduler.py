@@ -403,12 +403,13 @@ class TaskScheduler:
                                     socketio.emit('task_progress', {
                                             'task_id': task.id,
                                             'user_id': task.user_id,
-                                            # 'file_name': file_obj.original_filename,
+                                            'target_url':root_url,
+
+                                            'file_name': file_obj.original_filename,
                                             'executed_count': num,
                                             'total_count':total_num,
-                                            'target_url':root_url,
                                             'menu_text':menu_text,
-                                            'status_code': status_code,
+                                            
                                             'timestamp': datetime.now().strftime('%m-%d %H:%M:%S')
                                         })
                                 except Exception as e:
