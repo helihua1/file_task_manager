@@ -15,7 +15,7 @@ from app.models.task import Task
 from app.models.file import File
 from app.models.task_execution import TaskExecution
 from app.models.url_context import UrlUpdateContext
-from app import db
+from app import db, socketio
 import test
 from app.models.url_context import url_update_context
 # [4] 任务调度器初始化
@@ -96,12 +96,6 @@ class TaskScheduler:
                 end_date=task.end_time
             )
         else:
-            # # 使用间隔触发器
-            # trigger = IntervalTrigger(
-            #     seconds=task.interval_seconds,
-            #     # start_date=task.start_time,
-            #     end_date=task.end_time
-            # )
 
             # 2秒后执行一次
             trigger = DateTrigger(run_date=datetime.now() + timedelta(seconds=2))
@@ -331,6 +325,7 @@ class TaskScheduler:
                     
                     root_url = url_parts[0]
                     menu_value = url_parts[1]
+                    menu_text = UrlUpdateContext.get_menu_text_by_root_url_and_menu_value(root_url, menu_value)
                     
                     # 获取网站配置信息，返回UrlUpdateContext对象实例
                     url_context = UrlUpdateContext.query.filter_by(root_url=root_url).first()
@@ -356,7 +351,8 @@ class TaskScheduler:
                             return False, None, f"upload_before执行失败 {zixun_page.status_code}"
 
                         # 循环上传文件
-                        for file_obj_main_thread in file_objs:
+                        total_num = len(file_objs)
+                        for num,file_obj_main_thread in enumerate(file_objs):
                             try:
                                 file_obj_main_thread.id
                                 file_obj = dbsession.query(File).filter_by(id=file_obj_main_thread.id).first()
@@ -403,7 +399,18 @@ class TaskScheduler:
                                     dbsession.commit()
                                     
                                     logger.info(f"文件 {file_obj.original_filename} 上传到 {root_url} 成功")
-                                    
+                                    # websocket 发送任务进度
+                                    socketio.emit('task_progress', {
+                                            'task_id': task.id,
+                                            'user_id': task.user_id,
+                                            # 'file_name': file_obj.original_filename,
+                                            'executed_count': num,
+                                            'total_count':total_num,
+                                            'target_url':root_url,
+                                            'menu_text':menu_text,
+                                            'status_code': status_code,
+                                            'timestamp': datetime.now().strftime('%m-%d %H:%M:%S')
+                                        })
                                 except Exception as e:
                                     print(f"数据库操作失败: {str(e)}，回滚")
                                     db.session.rollback()

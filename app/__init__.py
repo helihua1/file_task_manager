@@ -6,6 +6,7 @@ import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
+from flask_socketio import SocketIO
 from config import config
 '''
 # 1. 启动应用时
@@ -28,6 +29,7 @@ from app import create_app  # 这里会触发 app/__init__.py 的执行
 # db = SQLAlchemy() 这行代码的执行时机不是在所有代码之前，而是在app模块被第一次导入时。
 db = SQLAlchemy()
 login_manager = LoginManager()
+socketio = SocketIO()
 
 def create_app(config_name=None):
     """
@@ -46,6 +48,7 @@ def create_app(config_name=None):
     
     # [初始化扩展]
     db.init_app(app)
+    socketio.init_app(app, cors_allowed_origins="*")
     
     # [配置登录管理器]
     login_manager.init_app(app)
@@ -107,4 +110,4 @@ def create_app(config_name=None):
             db.session.commit()
             app.logger.info('默认管理员账户已创建: admin/admin123')
     
-    return app
+    return app, socketio

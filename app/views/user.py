@@ -624,6 +624,7 @@ def test_url_menu():
     print('开始检索')
     try:
         # 从表单数据获取参数
+        name = request.form.get('name')
         root_url = request.form.get('root_url')
         suffix = request.form.get('suffix') 
         username = request.form.get('username')
@@ -650,6 +651,7 @@ def test_url_menu():
             from flask import session as flask_session
             flask_session['temp_menu_data'] = menu_data
             flask_session['temp_url_data'] = {
+                'name': name,
                 'root_url': root_url,
                 'suffix': suffix,
                 'username': username,
@@ -697,6 +699,7 @@ def add_url_context():
         menu_data = flask_session.get('temp_menu_data')
         
         # 从表单获取数据
+        name = request.form.get('name')
         root_url = request.form.get('root_url')
         suffix = request.form.get('suffix')
         username = request.form.get('username')
@@ -722,6 +725,7 @@ def add_url_context():
         
         # 创建新的URL上下文
         url_context = UrlUpdateContext(
+            name=name,
             root_url=root_url,
             suffix=suffix,
             username=username,

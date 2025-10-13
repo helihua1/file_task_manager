@@ -43,6 +43,31 @@ class UrlUpdateContext(db.Model):
             'base_url': self.base_url
         }
     
+    @staticmethod
+    def get_menu_text_by_root_url_and_menu_value(root_url, menu_value):
+        """
+        根据root_url和menu_value获取menu_text
+        
+        Args:
+            root_url (str): 根域名
+            menu_value (str): 菜单值
+            
+        Returns:
+            str or None: 菜单文本，如果未找到则返回None
+        """
+        # 首先根据root_url找到对应的上下文
+        context = UrlUpdateContext.query.filter_by(root_url=root_url).first()
+        if not context:
+            return None
+        
+        # 根据上下文ID和menu_value查找对应的菜单
+        menu = UrlMenu.query.filter_by(
+            context_id=context.id,
+            menu_value=menu_value
+        ).first()
+        
+        return menu.menu_text if menu else None
+    
     def __repr__(self):
         return f'<UrlUpdateContext {self.root_url}{self.suffix}>'
 

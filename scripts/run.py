@@ -21,7 +21,7 @@ def run_app():
     os.environ.setdefault('FLASK_ENV', 'development')
     
     # [创建应用实例]
-    app = create_app()
+    app, socketio = create_app()
     
     # [启动所有运行中的任务]
     with app.app_context():
@@ -39,12 +39,14 @@ def run_app():
     print(f"管理员账户: admin / admin123")
     
     # [启动Flask应用]
-    app.run(
+    socketio.run(
+        app,
+        allow_unsafe_werkzeug=True,
         host=host,
         port=port,
         debug=debug,
-        threaded=True,
         use_reloader=False
+        # thread=True
     )
 
 if __name__ == '__main__':
