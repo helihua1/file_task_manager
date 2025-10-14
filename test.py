@@ -264,7 +264,14 @@ def upload(session,zixun_page,base_url,menu_value,title,text,ifGBK=False):
     post_url = base_url + "/ecmsinfo.php"
     r = session.post(post_url, data=post_data)
     open_resp(r)
+    soup = BeautifulSoup(r.text, 'html.parser')
 
+    # 方法1：直接搜索文本
+    if soup.find(string=lambda text: text and "增加信息成功" in text):
+        print("✅ 增加信息成功！")
+    else:
+        print("❌ 没有增加信息成功！")
+        
     # 返回状态码
     return r.status_code
 
@@ -280,6 +287,231 @@ def get_menu(update_context):
     print(f"执行get_menu得到：{js_result}")
     return js_result
 
+
+def refresh_all(update_context):
+    session = update_context.session
+    zixun_page, zixun_page_url, ifGBK = login_diguo(update_context)
+    print(zixun_page_url)
+
+    url = zixun_page_url
+    match = re.search(r'(\?ehash_[^=]+=[^&]+)', url)
+    ehash = match.group(0)  #得到?ehash_xxxxxxxxx
+
+
+    # 拼接成刷新页面url
+    base = urljoin(update_context.base_url + "/", "ReHtml/ChangeData.php")
+    refresh_url = base + ehash
+    print(refresh_url)
+    resp_get = session.get(refresh_url)
+    # open_resp(resp_get)
+    
+    # 解析HTML，找到"刷新首页"按钮并提取onclick中的URL
+    soup = BeautifulSoup(resp_get.text, 'html.parser')
+    
+    # 刷新一：刷新首页
+    refresh_button = soup.find('input', {'value': '刷新首页'})
+    
+    if refresh_button and refresh_button.get('onclick'):
+        onclick_content = refresh_button.get('onclick')
+        
+        # 从onclick中提取URL
+        # onclick格式: self.location.href='../ecmschtml.php?enews=ReIndex&ehash_Rx5Oo=...'
+        url_match = re.search(r"self\.location\.href='([^']+)'", onclick_content)
+        
+        if url_match:
+            target_url = url_match.group(1)
+            # 将HTML实体转换为正常字符
+            target_url = target_url.replace('&amp;', '&')
+            
+            # 拼接成完整URL
+            full_url = urljoin(resp_get.url, target_url)
+            
+            # 访问刷新首页URL
+            resp_refresh_index = session.get(full_url)
+            # open_resp(resp_refresh_index)
+            
+            
+        else:
+            print("未能从onclick中提取刷新首页URL")
+    else:
+        print("未找到刷新首页按钮")
+    
+    # 刷新二：刷新所有信息栏目页，有三次跳转
+    refresh_all_button = soup.find('input', {'value': '刷新所有信息栏目页'})
+    
+    if refresh_all_button and refresh_all_button.get('onclick'):
+        onclick_content = refresh_all_button.get('onclick')
+        
+        # 从onclick中提取URL
+        # onclick格式: window.open('../ecmschtml.php?enews=ReListHtml_all&...','','');
+        url_match = re.search(r"window\.open\('([^']+)'", onclick_content)
+        
+        if url_match:
+            target_url = url_match.group(1)
+            # 将HTML实体转换为正常字符
+            target_url = target_url.replace('&amp;', '&')
+            
+            # 拼接成完整URL
+            full_url = urljoin(resp_get.url, target_url)
+            print(f"提取到的刷新所有栏目页URL: {full_url}")
+            
+            # 访问刷新所有栏目页URL
+            resp_refresh_all_list = session.get(full_url)
+            # open_resp(resp_refresh_all_list)
+            
+            # 检查是否有meta refresh跳转
+            meta_match = re.search(r'<meta[^>]+content=["\']?\d+;url=([^"\'>\s]+)', resp_refresh_all_list.text, re.IGNORECASE)
+            
+            if meta_match:
+                redirect_url = meta_match.group(1)
+                # 将HTML实体转换为正常字符
+                redirect_url = redirect_url.replace('&amp;', '&')
+                
+                # 拼接成完整URL
+                next_url = urljoin(resp_refresh_all_list.url, redirect_url)
+                print(f"提取到的meta跳转URL: {next_url}")
+                
+                # 访问跳转URL
+                resp_refresh_all_list = session.get(next_url)
+                # open_resp(resp_refresh_all_list)
+                
+                # 检查是否有JavaScript跳转 self.location.href
+                js_match = re.search(r"self\.location\.href='([^']+)'", resp_refresh_all_list.text)
+                
+                if js_match:
+                    redirect_url = js_match.group(1)
+                    # 将HTML实体转换为正常字符
+                    redirect_url = redirect_url.replace('&amp;', '&')
+                    
+                    # 拼接成完整URL
+                    next_url = urljoin(resp_refresh_all_list.url, redirect_url)
+                    
+                    # 访问跳转URL
+                    resp_refresh_all_list = session.get(next_url)
+                    # open_resp(resp_refresh_all_list)
+        else:
+            print("未能从onclick中提取刷新所有栏目页URL")
+    else:
+        print("未找到刷新所有信息栏目页按钮")
+    
+    # 刷新三：勾选"全部刷新"并点击"刷新所有信息内容页面"
+    refresh_content_button = soup.find('input', {'value': '刷新所有信息内容页面'})
+    
+    if refresh_content_button and refresh_content_button.get('onclick'):
+        onclick_content = refresh_content_button.get('onclick')
+        
+        # onclick内容示例：
+        # var toredohtml=0;if(document.dorehtml.havehtml.checked==true){toredohtml=1;}
+        # window.open('DoRehtml.php?enews=ReNewsHtml&start=0&havehtml='+toredohtml+'&from=...','','');
+        
+        # 提取URL的各个部分（因为是字符串拼接）
+        # 方法：提取所有单引号中的内容，然后拼接
+        url_parts = re.findall(r"'([^']+)'", onclick_content)
+        
+        if len(url_parts) >= 1:
+            # 第一部分通常是URL的主要部分
+            # 例如：'DoRehtml.php?enews=ReNewsHtml&start=0&havehtml='
+            # 然后是 toredohtml 变量
+            # 然后是 '&from=...'
+            
+            # 重新构造完整URL，设置toredohtml=1（模拟勾选checkbox）
+            # 从onclick提取完整的URL模式
+            full_onclick = onclick_content
+            
+            # 查找window.open部分
+            window_open_match = re.search(r"window\.open\((.+?)\)", full_onclick)
+            
+            if window_open_match:
+                # 提取window.open的第一个参数（URL表达式）
+                url_expression = window_open_match.group(1).split(',')[0]
+                
+                # 移除引号并重建URL，将 '+toredohtml+' 替换为 '1'
+                # 例如：'DoRehtml.php?enews=ReNewsHtml&start=0&havehtml='+toredohtml+'&from=...'
+                # 替换为：DoRehtml.php?enews=ReNewsHtml&start=0&havehtml=1&from=...
+                
+                # 方法：提取所有引号内容并用toredohtml=1连接
+                parts = re.findall(r"'([^']*)'", url_expression)
+                
+                # 将所有部分拼接，中间用'1'（toredohtml的值）连接
+                # 通常格式是：'part1'+toredohtml+'part2'+toredohtml+'part3'...
+                # 我们要把所有部分用toredohtml=1拼接
+                target_url = '1'.join(parts)
+                
+                # 将&amp;转换为&
+                target_url = target_url.replace('&amp;', '&')
+                
+                # 拼接成完整URL
+                full_url = urljoin(resp_get.url, target_url)
+ 
+                # 访问URL
+                resp_refresh_all_content = session.get(full_url)
+                open_resp(resp_refresh_all_content)
+                
+
+                # ===============循环跳转，检验的时候用===================
+                # # 检查返回页面中是否有iframe src
+                # soup_content = BeautifulSoup(resp_refresh_all_content.text, 'html.parser')
+                # iframe = soup_content.find('iframe')
+                
+                # if iframe and iframe.get('src'):
+                #     iframe_src = iframe.get('src')
+                #     # 将../转换并拼接成完整URL
+                #     iframe_url = urljoin(resp_refresh_all_content.url, iframe_src)
+                #     print(f"提取到iframe URL: {iframe_url}")
+
+                #     # 实际跳了3次
+                #     # 访问iframe中的实际刷新页面，并循环跟踪所有meta refresh跳转
+                #     current_url = iframe_url
+                #     refresh_count = 0
+                #     max_refreshes = 1000  # 防止无限循环
+                    
+                #     while refresh_count < max_refreshes:
+                #         resp_iframe_content = session.get(current_url)
+                        
+                #         # 解析页面，查找meta refresh
+                #         soup_iframe = BeautifulSoup(resp_iframe_content.text, 'html.parser')
+                #         meta_refresh = soup_iframe.find('meta', attrs={'http-equiv': 'refresh'})
+                        
+                #         if meta_refresh and meta_refresh.get('content'):
+                #             content = meta_refresh.get('content')
+                #             # 从content中提取URL，格式：0;url=...
+                #             url_match = re.search(r'url=(.+)', content, re.IGNORECASE)
+                            
+                #             if url_match:
+                #                 next_url = url_match.group(1)
+                #                 next_url = urljoin(resp_iframe_content.url, next_url)
+                                
+                #                 # 提取进度信息
+                #                 progress_match = re.search(r'ID:<font color=red><b>(\d+)</b></font>', resp_iframe_content.text)
+                #                 if progress_match:
+                #                     current_id = progress_match.group(1)
+                #                     print(f"刷新进度 - 当前ID: {current_id}")
+                                
+                #                 current_url = next_url
+                #                 refresh_count += 1
+                #             else:
+                #                 # 没有找到URL，结束循环
+                #                 print("刷新完成（未找到下一个URL）")
+                #                 open_resp(resp_iframe_content)
+                #                 break
+                #         else:
+                #             # 没有meta refresh，说明刷新完成
+                #             print(f"刷新所有信息内容页面完成！总共刷新 {refresh_count} 批次")
+                #             open_resp(resp_iframe_content)
+                #             break
+                    
+                #     if refresh_count >= max_refreshes:
+                #         print(f"警告：达到最大刷新次数限制 ({max_refreshes})")
+                #         open_resp(resp_iframe_content)
+                # else:
+                #     print("未找到iframe src")
+            else:
+                print("未能解析window.open语句")
+        else:
+            print("未能从onclick中提取URL部分")
+    else:
+        print("未找到刷新所有信息内容页面按钮")
+
 if __name__ == '__main__':
     class url_update_context:
         def __init__(self,session,root_url,suffix,username,password):
@@ -294,8 +526,8 @@ if __name__ == '__main__':
   
     session = requests.Session()
 
-    username = ""
-    password = ""
+    username = "yh1"
+    password = "yh123456"
 
     titles_and_texts = {"测试title122222": "测试text1222222", 
     "测试title333333": "测试text3333333",
@@ -303,8 +535,8 @@ if __name__ == '__main__':
     }
     sleeptime = 3
     menu_value = "1"
-    suffix = ""
-    root_url = ""
+    suffix = "e/AcoyKcy7s9/"
+    root_url = "http://zx1.bh308.com"
 
 
     upload_date = url_update_context(session,root_url,suffix,username,password)
