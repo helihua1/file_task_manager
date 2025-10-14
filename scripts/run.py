@@ -22,7 +22,44 @@ def run_app():
     
     # [创建应用实例]
     app, socketio = create_app()
+
+
+    # [定义WebSocket事件处理器] - 必须在socketio.run()之前
+    @socketio.on("message", namespace="/ws")
+    def socket(message):
+        print(f"接收到消息: {message['data']}")
+        for i in range(1, 10):
+            socketio.sleep(1)
+            socketio.emit("response",           # 绑定通信
+                        {"data": i},           # 返回socket数据
+                      namespace="/ws")
     
+    @socketio.on('connect', namespace='/ws')
+    def test_connect():
+        print('客户端已连接到 /ws 命名空间')
+        socketio.emit('response', {'data':'websocket连接成功,可以看到正在执行的信息'}, namespace='/ws')
+    
+    @socketio.on('disconnect', namespace='/ws')
+    def test_disconnect():
+        print('客户端已断开连接')
+
+    # 测试方法
+    @app.route('/push')
+    def push_once():
+        event_name = 'response'
+        socketio.emit('task_progress', {
+            'task_id': 1,
+            'user_id': 2,
+            'target_url': 3,
+            'file_name': 4,
+            'executed_count': 5,
+            'total_count': 6,
+            'menu_text': 7,
+            'timestamp': 8
+        }, namespace='/ws')
+        return 'done!'
+
+
     # [启动所有运行中的任务]
     with app.app_context():
         task_scheduler.start_all_running_tasks()
@@ -48,6 +85,7 @@ def run_app():
         use_reloader=False
         # thread=True
     )
+        
 
 if __name__ == '__main__':
     run_app()

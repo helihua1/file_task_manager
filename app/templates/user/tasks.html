@@ -169,7 +169,8 @@
                                             <tbody>
                                             {% for url in task.target_url.split(',') %}
                                                 <tr>
-                                                    <td class="small text-break">{{ url }}</td>
+                                                    <td class="small text-break">{{ url.split('栏目值')[0] }}</td>
+                                                    <td class="small text-break url-info"></td>
                                                 </tr>
                                             {% endfor %}
                                             </tbody>
@@ -255,15 +256,27 @@
 {% endblock %}
 
 {% block extra_js %}
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script>
-// 自动刷新页面以更新任务状态（每30秒）
-// setInterval(function() {
-//     // 只刷新运行中的任务
-//     const runningTasks = document.querySelectorAll('.badge.bg-success');
-//     if (runningTasks.length > 0) {
-//         location.reload();
-//     }
-// }, 30000);
+    // 初始化Socket.IO连接
+    const socket = io('/ws');
+
+    socket.on('task_progress', function(data) {
+        console.log('JSON字符串格式:', JSON.stringify(data, null, 2));
+
+        // 弹出窗口显示所有信息
+        alert('task_progress 事件数据:\n' + JSON.stringify(data, null, 2));
+
+    });
+
+
+    socket.on('response', function(data) {
+        alert('response 事件数据:\n' + JSON.stringify(data, null, 2));
+    });
+</script>
+
+<script>
 
 // 任务操作确认
 document.addEventListener('click', function(e) {
@@ -289,5 +302,8 @@ document.addEventListener('click', function(e) {
         }
     }
 });
+
+
 </script>
+
 {% endblock %} 

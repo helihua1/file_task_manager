@@ -373,7 +373,20 @@ class TaskScheduler:
                                 
                             if status_code == 200:
                                 try:
+                                    # websocket 发送任务进度
+                                    print('发送websocket进度信息到浏览器')
+                                    socketio.emit('task_progress', {
+                                        'task_id': task.id,
+                                        'user_id': task.user_id,
+                                        'target_url': root_url,
 
+                                        'file_name': file_obj.original_filename,
+                                        'executed_count': num,
+                                        'total_count': total_num,
+                                        'menu_text': menu_text,
+
+                                        'timestamp': datetime.now().strftime('%m-%d %H:%M:%S')
+                                    }, namespace='/ws')
                                     # 标记文件为已执行
                                     file_obj.is_executed = True
                                     file_obj.is_executing = False  # 重置正在处理状态
@@ -399,19 +412,7 @@ class TaskScheduler:
                                     dbsession.commit()
                                     
                                     logger.info(f"文件 {file_obj.original_filename} 上传到 {root_url} 成功")
-                                    # websocket 发送任务进度
-                                    socketio.emit('task_progress', {
-                                            'task_id': task.id,
-                                            'user_id': task.user_id,
-                                            'target_url':root_url,
 
-                                            'file_name': file_obj.original_filename,
-                                            'executed_count': num,
-                                            'total_count':total_num,
-                                            'menu_text':menu_text,
-                                            
-                                            'timestamp': datetime.now().strftime('%m-%d %H:%M:%S')
-                                        })
                                 except Exception as e:
                                     print(f"数据库操作失败: {str(e)}，回滚")
                                     db.session.rollback()
