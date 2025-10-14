@@ -365,28 +365,30 @@ class TaskScheduler:
                                 # [4-5.3] 执行upload逻辑
                                 status_code = test.upload(session, zixun_page, upload_date.base_url, menu_value, file_title, file_content,ifGBK)
                                 time.sleep(task.interval_seconds)
+
+                                # websocket 发送任务进度
+                                print('发送websocket进度信息到浏览器')
+                                socketio.emit('task_progress', {
+                                    'task_id': task.id,
+                                    'user_id': task.user_id,
+                                    'target_url': root_url,
+
+                                    'file_name': file_obj.original_filename,
+                                    'executed_count': num + 1,
+                                    'total_count': total_num,
+                                    'menu_text': menu_text,
+
+                                    'timestamp': datetime.now().strftime('%m-%d %H:%M:%S')
+                                }, namespace='/ws')
+
                             except Exception as e:
                                 # f"执行错误: {str(e)}" 是在 upload_to_target 函数内部，这个函数作为线程目标函数运行。线程的返回值不会被主线程捕获或处理。
                                 print(f"执行错误: {str(e)}")
                                 return False, None, f"执行错误: {str(e)}"
-                                
+
                                 
                             if status_code == 200:
                                 try:
-                                    # websocket 发送任务进度
-                                    print('发送websocket进度信息到浏览器')
-                                    socketio.emit('task_progress', {
-                                        'task_id': task.id,
-                                        'user_id': task.user_id,
-                                        'target_url': root_url,
-
-                                        'file_name': file_obj.original_filename,
-                                        'executed_count': num,
-                                        'total_count': total_num,
-                                        'menu_text': menu_text,
-
-                                        'timestamp': datetime.now().strftime('%m-%d %H:%M:%S')
-                                    }, namespace='/ws')
                                     # 标记文件为已执行
                                     file_obj.is_executed = True
                                     file_obj.is_executing = False  # 重置正在处理状态

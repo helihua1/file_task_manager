@@ -37,7 +37,7 @@ def run_app():
     @socketio.on('connect', namespace='/ws')
     def test_connect():
         print('客户端已连接到 /ws 命名空间')
-        socketio.emit('response', {'data':'websocket连接成功,可以看到正在执行的信息'}, namespace='/ws')
+        # socketio.emit('response', {'data':'websocket连接成功,可以看到正在执行的信息'}, namespace='/ws')
     
     @socketio.on('disconnect', namespace='/ws')
     def test_disconnect():

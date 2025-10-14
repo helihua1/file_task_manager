@@ -228,7 +228,7 @@ def upload(session,zixun_page,base_url,menu_value,title,text,ifGBK=False):
     upload_writing_page = session.get(upload_url)
     # open_resp(upload_writing_page)
 
-    print(f'上传文件名:{title}')
+    # print(f'上传文件名:{title}')
     '''
     上传文章
     '''

@@ -168,9 +168,9 @@
                                         <table class="table table-sm table-bordered mb-0">
                                             <tbody>
                                             {% for url in task.target_url.split(',') %}
-                                                <tr>
-                                                    <td class="small text-break">{{ url.split('栏目值')[0] }}</td>
-                                                    <td class="small text-break url-info"></td>
+                                                <tr data-task-id="{{ task.id }}" data-url="{{ url.split('栏目值')[0] }}">
+                                                    <td class="small text-break" style="width: 30%;">{{ url.split('栏目值')[0] }}</td>
+                                                    <td class="small text-break url-info" style="width: 70%;"></td>
                                                 </tr>
                                             {% endfor %}
                                             </tbody>
@@ -263,11 +263,55 @@
     const socket = io('/ws');
 
     socket.on('task_progress', function(data) {
-        console.log('JSON字符串格式:', JSON.stringify(data, null, 2));
+        console.log('收到任务进度更新:', JSON.stringify(data, null, 2));
 
-        // 弹出窗口显示所有信息
-        alert('task_progress 事件数据:\n' + JSON.stringify(data, null, 2));
+        // 根据 task_id 和 target_url 找到对应的行
+        const taskId = data.task_id;
+        const targetUrl = data.target_url;
+        
+        // 自动显示 URL 表格（如果是隐藏的），class="d-none"：这是 Bootstrap 的工具类，用于隐藏元素（相当于 display: none）
+        const row = document.querySelector(`#urls-${taskId}`);
+        if (row) row.classList.remove('d-none');
 
+        
+        // 查找匹配的 URL 行
+        const urlRow = document.querySelector(`tr[data-task-id="${taskId}"][data-url="${targetUrl}"]`);
+        
+        if (urlRow) {
+            // 找到对应的 url-info 单元格
+            const infoCell = urlRow.querySelector('.url-info');
+            
+            if (infoCell) {
+                // 构建显示内容
+                let content = '';
+                
+                if (data.file_name) {
+                    content += `<div><strong>文件:</strong> ${data.file_name}</div>`;
+                }
+                
+                if (data.executed_count !== undefined && data.total_count !== undefined) {
+                    content += `<div><strong>进度:</strong> ${data.executed_count}/${data.total_count}</div>`;
+                }
+                
+                if (data.menu_text) {
+                    content += `<div><strong>栏目:</strong> ${data.menu_text}</div>`;
+                }
+                
+                if (data.status_code !== undefined) {
+                    const statusClass = data.status_code === 200 ? 'text-success' : 'text-danger';
+                    content += `<div><strong>状态码:</strong> <span class="${statusClass}">${data.status_code}</span></div>`;
+                }
+                
+                if (data.timestamp) {
+                    content += `<div><strong>时间:</strong> ${data.timestamp}</div>`;
+                }
+                
+                // 更新单元格内容
+                infoCell.innerHTML = content;
+            }
+        } else {
+            console.warn('未找到匹配的 URL 行:', taskId, targetUrl);
+        }
     });
 
 
