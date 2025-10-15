@@ -166,25 +166,7 @@
                     {% endif %}
                 </div>
                 
-                <!-- 进度条 -->
-                <div class="progress-container mb-3">
-                    <div class="progress" style="height: 25px;">
-                        <div class="progress-bar 
-                            {% if task.status == 'completed' %}bg-success
-                            {% elif task.status == 'running' %}bg-primary
-                            {% elif task.status == 'failed' %}bg-danger
-                            {% else %}bg-secondary{% endif %}" 
-                             role="progressbar" 
-                             style="width: {{ task.get_progress_percentage() }}%"
-                             aria-valuenow="{{ task.get_progress_percentage() }}" 
-                             aria-valuemin="0" 
-                             aria-valuemax="100">
-                        </div>
-                    </div>
-                    <div class="progress-text">
-                        {{ task.get_progress_percentage() }}%
-                    </div>
-                </div>
+
                 
                 <!-- 统计信息 -->
                 <div class="row text-center">
@@ -194,17 +176,10 @@
                             <small class="text-muted">已执行</small>
                         </div>
                     </div>
-                    <div class="col-6">
-                        <h4 class="text-info mb-1">{{ task.total_files_count }}</h4>
-                        <small class="text-muted">总文件数</small>
-                    </div>
+
                 </div>
                 
-                <!-- 剩余文件数 -->
-                <div class="mt-3">
-                    <small class="text-muted">
-                        剩余: {{ task.total_files_count - task.executed_files_count }} 个文件
-                    </small>
+
                 </div>
             </div>
         </div>
