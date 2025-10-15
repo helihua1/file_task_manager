@@ -191,55 +191,20 @@
     <div class="card-header">
         <h5 class="mb-0">
             <i class="fas fa-chart-bar me-2"></i>执行统计
-            <button class="btn btn-sm btn-primary ms-2" type="button" data-bs-toggle="collapse" 
-                    data-bs-target="#statsCollapse" aria-expanded="false" aria-controls="statsCollapse">
+            <button id="statsToggleBtn" class="btn btn-sm btn-primary ms-2" type="button" 
+                    data-bs-toggle="collapse" data-bs-target="#statsCollapse" 
+                    aria-expanded="false" aria-controls="statsCollapse">
                 <i class="fas fa-eye me-1"></i>统计历史信息
             </button>
         </h5>
     </div>
     <div class="collapse" id="statsCollapse">
-        <div class="card-body">
-            {% if url_stats %}
-                <div class="table-responsive">
-                    <table class="table table-hover table-bordered">
-                        <thead class="table-light">
-                            <tr>
-                                <th width="40%">目标URL</th>
-                                <th width="10%">栏目值</th>
-                                <th width="15%">总执行数量</th>
-                                <th width="15%">昨天执行数量</th>
-                                <th width="15%">今天执行数量</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for stat in url_stats %}
-                            <tr>
-                                <td>
-                                    <small class="text-muted">{{ stat.url }}</small>
-                                </td>
-                                <td class="text-center">
-                                    <span >{{ stat.menu_text }}</span>
-                                </td>
-                                <td class="text-center">
-                                    <span >{{ stat.total_count }}</span>
-                                </td>
-                                <td class="text-center">
-                                    <span >{{ stat.yesterday_count }}</span>
-                                </td>
-                                <td class="text-center">
-                                    <span >{{ stat.today_count }}</span>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            {% else %}
-                <div class="text-center py-3">
-                    <i class="fas fa-chart-bar fa-2x text-muted mb-2"></i>
-                    <p class="text-muted">暂无统计数据</p>
-                </div>
-            {% endif %}
+        <div class="card-body" id="statsContent">
+            <!-- 初始加载提示 -->
+            <div class="text-center py-3">
+                <i class="fas fa-chart-bar fa-2x text-muted mb-2"></i>
+                <p class="text-muted">点击上方按钮加载统计数据</p>
+            </div>
         </div>
     </div>
 </div>
@@ -409,6 +374,133 @@ document.addEventListener('click', function(e) {
         }
     }
 });
+
+// ====== AJAX 加载统计数据 ======
+let statsLoaded = false; // 缓存标记，避免重复请求
+const statsCollapse = document.getElementById('statsCollapse');
+const statsToggleBtn = document.getElementById('statsToggleBtn');
+
+// 监听折叠面板展开事件
+statsCollapse.addEventListener('show.bs.collapse', function() {
+    // 如果数据已加载，不再重复请求
+    if (statsLoaded) {
+        return;
+    }
+    
+    // 显示加载状态
+    const statsContent = document.getElementById('statsContent');
+    statsContent.innerHTML = `
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">加载中...</span>
+            </div>
+            <p class="text-muted mt-3">正在加载统计数据...</p>
+        </div>
+    `;
+    
+    // 发送 AJAX 请求
+    fetch('{{ url_for("user.get_task_stats", task_id=task.id) }}', {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('网络响应失败');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success && data.data && data.data.length > 0) {
+            // 渲染统计数据表格
+            renderStatsTable(data.data);
+            statsLoaded = true; // 标记已加载
+        } else {
+            // 无数据
+            statsContent.innerHTML = `
+                <div class="text-center py-3">
+                    <i class="fas fa-chart-bar fa-2x text-muted mb-2"></i>
+                    <p class="text-muted">暂无统计数据</p>
+                </div>
+            `;
+            statsLoaded = true;
+        }
+    })
+    .catch(error => {
+        // 错误处理
+        console.error('加载统计数据失败:', error);
+        statsContent.innerHTML = `
+            <div class="text-center py-3">
+                <i class="fas fa-exclamation-triangle fa-2x text-danger mb-2"></i>
+                <p class="text-danger">加载统计数据失败</p>
+                <button class="btn btn-sm btn-primary mt-2" onclick="retryLoadStats()">
+                    <i class="fas fa-redo me-1"></i>重试
+                </button>
+            </div>
+        `;
+    });
+});
+
+// 渲染统计表格
+function renderStatsTable(stats) {
+    const statsContent = document.getElementById('statsContent');
+    
+    let tableHtml = `
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th width="30%">目标URL</th>
+                        <th width="20%">栏目值</th>
+                        <th width="15%">总执行数量</th>
+                        <th width="15%">昨天执行数量</th>
+                        <th width="15%">今天执行数量</th>
+                    </tr>
+                </thead>
+                <tbody>
+    `;
+    
+    stats.forEach(stat => {
+        tableHtml += `
+            <tr>
+                <td><small class="text-muted">${escapeHtml(stat.url)}</small></td>
+                <td class="text-left"><span>${escapeHtml(stat.menu_text)}</span></td>
+                <td class="text-center"><span>${stat.total_count}</span></td>
+                <td class="text-center"><span>${stat.yesterday_count}</span></td>
+                <td class="text-center"><span>${stat.today_count}</span></td>
+            </tr>
+        `;
+    });
+    
+    tableHtml += `
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    statsContent.innerHTML = tableHtml;
+}
+
+// 重试加载
+function retryLoadStats() {
+    statsLoaded = false;
+    // 触发折叠面板展开事件
+    const event = new Event('show.bs.collapse');
+    statsCollapse.dispatchEvent(event);
+}
+
+// HTML 转义函数，防止 XSS
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return String(text).replace(/[&<>"']/g, m => map[m]);
+}
 
 </script>
 {% endblock %} 

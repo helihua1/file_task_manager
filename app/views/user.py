@@ -514,7 +514,25 @@ def task_detail(task_id):
     # [3-3.1] 获取任务执行历史
     execution_history = TaskExecution.get_task_execution_history(task_id)
     
-    # [3-3.2] 解析 target_url 并获取URL统计信息
+    # [3-3.2] 不在页面加载时获取统计数据，改为按需加载
+    # 移除了 url_stats 的查询，改为通过 AJAX 请求获取
+    
+    return render_template('user/task_detail.html', 
+                         task=task, 
+                         execution_history=execution_history)
+
+@user.route('/tasks/<int:task_id>/stats', methods=['GET'])
+@login_required
+def get_task_stats(task_id):
+    """
+    [3-3.3] 获取任务执行统计数据的 API 接口
+    通过 AJAX 调用，返回 JSON 格式的统计数据
+    """
+    task = Task.query.filter_by(id=task_id, user_id=current_user.id).first()
+    if not task:
+        return jsonify({'error': '任务不存在'}), 404
+    
+    # 解析 target_url 并获取URL统计信息
     url_configs = []
     if task.target_url:
         for url_str in task.target_url.split(','):
@@ -528,13 +546,10 @@ def task_detail(task_id):
                 url = parts[0].strip()
                 menu_value = parts[1].strip() if len(parts) > 1 else ''
                 
-                # 尝试获取菜单文本（如果有的话）
-                menu_text = f'栏目{menu_value}'
-                
                 url_configs.append({
                     'url': url,
                     'menu_value': menu_value,
-                    'menu_text': menu_text
+                    'menu_text': f'栏目{menu_value}'
                 })
             else:
                 # 如果没有栏目值，使用完整URL
@@ -547,10 +562,10 @@ def task_detail(task_id):
     # 获取URL执行统计
     url_stats = TaskExecution.get_url_execution_stats(task_id, url_configs)
     
-    return render_template('user/task_detail.html', 
-                         task=task, 
-                         execution_history=execution_history,
-                         url_stats=url_stats)
+    return jsonify({
+        'success': True,
+        'data': url_stats
+    })
 
 @user.route('/tasks/<int:task_id>/start', methods=['POST'])
 @login_required
