@@ -173,7 +173,7 @@ def login_diguo(update_context):
             href = target_link.get('href')
             # 使用base_url和href拼接得到新的网址
             new_url = urljoin(base_url + '/', href)
-            print(f"找到目标链接: {new_url}")
+            # print(f"找到目标链接: {new_url}")
             
             # 进入新页面
             resp_new_page = session.get(new_url)
@@ -269,11 +269,12 @@ def upload(session,zixun_page,base_url,menu_value,title,text,ifGBK=False):
     # 方法1：直接搜索文本
     if soup.find(string=lambda text: text and "增加信息成功" in text):
         print("✅ 增加信息成功！")
+        msg = '增加信息成功'
     else:
         print("❌ 没有增加信息成功！")
-        
+        msg = '可能异常'
     # 返回状态码
-    return r.status_code
+    return r.status_code,msg
 
       
 
@@ -284,14 +285,14 @@ def get_menu(update_context):
     zixun_page, zixun_page_url, ifGBK = login_diguo(update_context)  
     # 获取js文件中的内容，得到例如[('1', '|-资讯'), ('2', '|-疾病'), ('3', '|-中医'), ('4', '|-两性')]
     js_result = get_js_fr_zixun_page(session, zixun_page, zixun_page_url)
-    print(f"执行get_menu得到：{js_result}")
+    # print(f"执行get_menu得到：{js_result}")
     return js_result
 
 
 def refresh_all(update_context):
     session = update_context.session
     zixun_page, zixun_page_url, ifGBK = login_diguo(update_context)
-    print(zixun_page_url)
+    # print(zixun_page_url)
 
     url = zixun_page_url
     match = re.search(r'(\?ehash_[^=]+=[^&]+)', url)
@@ -301,7 +302,7 @@ def refresh_all(update_context):
     # 拼接成刷新页面url
     base = urljoin(update_context.base_url + "/", "ReHtml/ChangeData.php")
     refresh_url = base + ehash
-    print(refresh_url)
+    # print(refresh_url)
     resp_get = session.get(refresh_url)
     # open_resp(resp_get)
     
@@ -353,7 +354,7 @@ def refresh_all(update_context):
             
             # 拼接成完整URL
             full_url = urljoin(resp_get.url, target_url)
-            print(f"提取到的刷新所有栏目页URL: {full_url}")
+            # print(f"提取到的刷新所有栏目页URL: {full_url}")
             
             # 访问刷新所有栏目页URL
             resp_refresh_all_list = session.get(full_url)
@@ -369,7 +370,7 @@ def refresh_all(update_context):
                 
                 # 拼接成完整URL
                 next_url = urljoin(resp_refresh_all_list.url, redirect_url)
-                print(f"提取到的meta跳转URL: {next_url}")
+                # print(f"提取到的meta跳转URL: {next_url}")
                 
                 # 访问跳转URL
                 resp_refresh_all_list = session.get(next_url)

@@ -186,6 +186,64 @@
     </div>
 </div>
 
+<!-- 统计历史信息 -->
+<div class="card shadow mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="fas fa-chart-bar me-2"></i>执行统计
+            <button class="btn btn-sm btn-primary ms-2" type="button" data-bs-toggle="collapse" 
+                    data-bs-target="#statsCollapse" aria-expanded="false" aria-controls="statsCollapse">
+                <i class="fas fa-eye me-1"></i>统计历史信息
+            </button>
+        </h5>
+    </div>
+    <div class="collapse" id="statsCollapse">
+        <div class="card-body">
+            {% if url_stats %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="40%">目标URL</th>
+                                <th width="10%">栏目值</th>
+                                <th width="15%">总执行数量</th>
+                                <th width="15%">昨天执行数量</th>
+                                <th width="15%">今天执行数量</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for stat in url_stats %}
+                            <tr>
+                                <td>
+                                    <small class="text-muted">{{ stat.url }}</small>
+                                </td>
+                                <td class="text-center">
+                                    <span >{{ stat.menu_text }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <span >{{ stat.total_count }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <span >{{ stat.yesterday_count }}</span>
+                                </td>
+                                <td class="text-center">
+                                    <span >{{ stat.today_count }}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-3">
+                    <i class="fas fa-chart-bar fa-2x text-muted mb-2"></i>
+                    <p class="text-muted">暂无统计数据</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
 <!-- 执行历史 -->
 <div class="card shadow">
     <div class="card-header">
@@ -202,9 +260,9 @@
                         <tr>
                             <th width="15%">执行时间</th>
                             <th width="10%">状态</th>
-                            <th width="20%">文件名</th>
+                            <th width="20%">文件id</th>
                             <th width="35%">响应数据</th>
-                            <th width="20%">错误信息</th>
+                            <th width="20%">信息</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -216,57 +274,42 @@
                                 </small>
                             </td>
                             <td>
-                                {% if record.status == 'success' %}
+                                {% if record.status == '200success' %}
                                     <span class="badge bg-success">
-                                        <i class="fas fa-check me-1"></i>成功
+                                        <i class="fas fa-check me-1"></i>{{record.status}}
                                     </span>
                                 {% else %}
                                     <span class="badge bg-danger">
-                                        <i class="fas fa-times me-1"></i>失败
+                                        <i class="fas fa-times me-1"></i>{{record.status}}
                                     </span>
                                 {% endif %}
                             </td>
                             <td>
                                 <small class="text-muted">
-                                    {% if record.file_id %}
-                                        <i class="fas fa-file-alt me-1"></i>文件 #{{ record.file_id }}
-                                    {% else %}
-                                        <span class="text-muted">未知文件</span>
-                                    {% endif %}
+                                    {{record.file_id}}
                                 </small>
                             </td>
                             <td>
                                 {% if record.response_data %}
-                                    <button class="btn btn-sm btn-outline-info" 
-                                            data-bs-toggle="collapse" 
-                                            data-bs-target="#response-{{ record.id }}" 
-                                            aria-expanded="false">
-                                        <i class="fas fa-eye me-1"></i>查看响应
-                                    </button>
-                                    <div class="collapse mt-2" id="response-{{ record.id }}">
-                                        <div class="card card-body bg-light">
-                                            <pre class="mb-0 small">{{ record.response_data[:200] }}{% if record.response_data|length > 200 %}...{% endif %}</pre>
-                                        </div>
-                                    </div>
+
+                                    <small class="text-muted">
+                                        {{record.response_data}}
+                                    </small>
+<!--                                不能去掉 endif-->
                                 {% else %}
                                     <span class="text-muted">无响应数据</span>
                                 {% endif %}
                             </td>
                             <td>
-                                {% if record.error_message %}
-                                    <button class="btn btn-sm btn-outline-danger" 
-                                            data-bs-toggle="collapse" 
-                                            data-bs-target="#error-{{ record.id }}" 
-                                            aria-expanded="false">
-                                        <i class="fas fa-exclamation-triangle me-1"></i>查看错误
-                                    </button>
-                                    <div class="collapse mt-2" id="error-{{ record.id }}">
-                                        <div class="card card-body bg-light">
-                                            <pre class="mb-0 small text-danger">{{ record.error_message[:200] }}{% if record.error_message|length > 200 %}...{% endif %}</pre>
-                                        </div>
-                                    </div>
+
+                                {% if record.error_message == '增加信息成功' %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check me-1"></i>增加信息成功
+                                    </span>
                                 {% else %}
-                                    <span class="text-muted">无错误</span>
+                                    <span class="badge bg-danger">
+                                        <i class="fas fa-times me-1"></i>{{record.status}}
+                                    </span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -367,21 +410,5 @@ document.addEventListener('click', function(e) {
     }
 });
 
-// 响应数据和错误信息的展开/收起
-document.addEventListener('DOMContentLoaded', function() {
-    const collapseElements = document.querySelectorAll('[data-bs-toggle="collapse"]');
-    collapseElements.forEach(element => {
-        element.addEventListener('click', function() {
-            const target = document.querySelector(this.getAttribute('data-bs-target'));
-            const icon = this.querySelector('i');
-            
-            if (target.classList.contains('show')) {
-                icon.className = icon.className.replace('fa-eye-slash', 'fa-eye');
-            } else {
-                icon.className = icon.className.replace('fa-eye', 'fa-eye-slash');
-            }
-        });
-    });
-});
 </script>
 {% endblock %} 

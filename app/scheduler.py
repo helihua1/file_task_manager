@@ -377,7 +377,7 @@ class TaskScheduler:
                                 
                                 
                                 # [4-5.3] 执行upload逻辑
-                                status_code = test.upload(session, zixun_page, upload_date.base_url, menu_value, file_title, file_content,ifGBK)
+                                status_code,msg = test.upload(session, zixun_page, upload_date.base_url, menu_value, file_title, file_content,ifGBK)
                                 time.sleep(task.interval_seconds)
 
                                 # websocket 发送任务进度
@@ -412,15 +412,19 @@ class TaskScheduler:
                                     file_obj.move_to_executed_folder()
                                     
                                     # 增加已执行计数
-                                    task.executed_files_count += 1
+                                    # task.executed_files_count += 1
                                     task.updated_at = datetime.utcnow()
                                     
                                     # 创建执行记录
                                     execution_record = TaskExecution(
                                         task_id=task.id,
                                         file_id=file_obj.id,
-                                        status='success',
-                                        response_data=status_code
+                                        status='200success',
+                                        response_data=status_code,
+                                        execute_url= root_url,
+                                        url_menu_value=menu_value,
+                                        url_menu_text=menu_text,
+                                        error_message= msg
                                     )
                                     dbsession.add(execution_record)
                                     
@@ -435,12 +439,20 @@ class TaskScheduler:
                                     logger.error(f"数据库操作失败: {str(e)}")
                             else:
                                 # 记录失败执行
-                                TaskExecution.create_failed_record(
+
+                                execution_record = TaskExecution(
                                     task_id=task.id,
                                     file_id=file_obj.id,
-                                    error_message=status_code
+                                    status='fails',
+                                    response_data=status_code,
+                                    execute_url=root_url,
+                                    url_menu_value=menu_value,
+                                    url_menu_text=menu_text,
+                                    error_message=msg
                                 )
-                                
+                                dbsession.add(execution_record)
+                                dbsession.commit()
+
                                 logger.error(f"文件 {file_obj.original_filename} 上传到 {root_url} 失败: {status_code}")
                         test.refresh_all(upload_date)
 

@@ -514,9 +514,43 @@ def task_detail(task_id):
     # [3-3.1] 获取任务执行历史
     execution_history = TaskExecution.get_task_execution_history(task_id)
     
+    # [3-3.2] 解析 target_url 并获取URL统计信息
+    url_configs = []
+    if task.target_url:
+        for url_str in task.target_url.split(','):
+            url_str = url_str.strip()
+            if not url_str:
+                continue
+                
+            # 解析 URL 格式：http://xxx/栏目值:4
+            if '栏目值:' in url_str:
+                parts = url_str.split('栏目值:')
+                url = parts[0].strip()
+                menu_value = parts[1].strip() if len(parts) > 1 else ''
+                
+                # 尝试获取菜单文本（如果有的话）
+                menu_text = f'栏目{menu_value}'
+                
+                url_configs.append({
+                    'url': url,
+                    'menu_value': menu_value,
+                    'menu_text': menu_text
+                })
+            else:
+                # 如果没有栏目值，使用完整URL
+                url_configs.append({
+                    'url': url_str,
+                    'menu_value': '',
+                    'menu_text': ''
+                })
+    
+    # 获取URL执行统计
+    url_stats = TaskExecution.get_url_execution_stats(task_id, url_configs)
+    
     return render_template('user/task_detail.html', 
                          task=task, 
-                         execution_history=execution_history)
+                         execution_history=execution_history,
+                         url_stats=url_stats)
 
 @user.route('/tasks/<int:task_id>/start', methods=['POST'])
 @login_required
