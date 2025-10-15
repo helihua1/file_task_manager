@@ -33,7 +33,7 @@
                         <tr>
                             <th width="25%">任务名称</th>
                             <th width="15%">状态</th>
-                            <th width="15%">进度</th>
+<!--                            <th width="15%">进度</th>-->
                             <th width="20%">执行信息</th>
                             <th width="15%">创建时间</th>
                             <th width="10%">操作</th>
@@ -79,27 +79,7 @@
                                     </span>
                                 {% endif %}
                             </td>
-                            <td>
-                                <div class="progress-container">
-                                    <div class="progress" style="height: 20px;">
-                                        <div class="progress-bar 
-                                            {% if task.status == 'completed' %}bg-success
-                                            {% elif task.status == 'running' %}bg-primary
-                                            {% elif task.status == 'failed' %}bg-danger
-                                            {% else %}bg-secondary{% endif %}" 
-                                             role="progressbar" 
-                                             style="width: {{ task.get_progress_percentage() }}%"
-                                             aria-valuenow="{{ task.get_progress_percentage() }}" 
-                                             aria-valuemin="0" 
-                                             aria-valuemax="100">
-                                        </div>
-                                    </div>
-                                    <small class="text-muted">
-                                        {{ task.executed_files_count }}/{{ task.total_files_count }} 
-                                        ({{ task.get_progress_percentage() }}%)
-                                    </small>
-                                </div>
-                            </td>
+
                             <td>
                                 <div class="small">
                                     <div class="mb-1">

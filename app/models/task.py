@@ -37,8 +37,8 @@ class Task(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, comment='任务更新时间')
     
     # [1-3.1.5] 任务统计字段
-    executed_files_count = db.Column(db.Integer, default=0, comment='已执行文件数量')
-    total_files_count = db.Column(db.Integer, default=0, comment='总文件数量')
+    # executed_files_count = db.Column(db.Integer, default=0, comment='已执行文件数量')
+    # total_files_count = db.Column(db.Integer, default=0, comment='总文件数量')
     
     # [1-3.1.6] 关联关系
     task_executions = db.relationship('TaskExecution', backref='task', lazy='dynamic',
@@ -61,45 +61,45 @@ class Task(db.Model):
         self.backup_folders = backup_folders
         self.daily_start_time = daily_start_time
         self.daily_execution_count = daily_execution_count
-        self.update_file_count()
+        # self.update_file_count()
     
-    def update_file_count(self):
-        """
-        [3-1.4] 更新任务关联的文件数量
-        创建任务时计算用户未执行的文件总数（包含主文件夹和备用文件夹）
-        """
-        from .file import File
-        import os
-        import json
+    # def update_file_count(self):
+    #     """
+    #     [3-1.4] 更新任务关联的文件数量
+    #     创建任务时计算用户未执行的文件总数（包含主文件夹和备用文件夹）
+    #     """
+    #     from .file import File
+    #     import os
+    #     import json
         
-        query = File.query.filter_by(
-            user_id=self.user_id, 
-            is_executed=False
-        )
+    #     query = File.query.filter_by(
+    #         user_id=self.user_id, 
+    #         is_executed=False
+    #     )
         
-        # 如果指定了源文件夹，计算该文件夹及备用文件夹的文件
-        if self.source_folder:
-            folders = [self.source_folder]
+    #     # 如果指定了源文件夹，计算该文件夹及备用文件夹的文件
+    #     if self.source_folder:
+    #         folders = [self.source_folder]
             
-            # 添加备用文件夹
-            if self.backup_folders:
-                try:
-                    backup_list = json.loads(self.backup_folders)
-                    folders.extend(backup_list)
-                except:
-                    pass
+    #         # 添加备用文件夹
+    #         if self.backup_folders:
+    #             try:
+    #                 backup_list = json.loads(self.backup_folders)
+    #                 folders.extend(backup_list)
+    #             except:
+    #                 pass
             
-            # 构建多个文件夹的OR条件
-            folder_conditions = []
-            for folder in folders:
-                folder_conditions.append(File.file_path.like(f'%{os.sep}{folder}{os.sep}%'))
-                folder_conditions.append(File.file_path.like(f'%\\{folder}\\%'))
+    #         # 构建多个文件夹的OR条件
+    #         folder_conditions = []
+    #         for folder in folders:
+    #             folder_conditions.append(File.file_path.like(f'%{os.sep}{folder}{os.sep}%'))
+    #             folder_conditions.append(File.file_path.like(f'%\\{folder}\\%'))
             
-            if folder_conditions:
-                query = query.filter(db.or_(*folder_conditions))
+    #         if folder_conditions:
+    #             query = query.filter(db.or_(*folder_conditions))
         
-        self.total_files_count = query.count()
-        db.session.commit()
+    #     self.total_files_count = query.count()
+    #     db.session.commit()
     
     def start_task(self):
         """
@@ -176,28 +176,28 @@ class Task(db.Model):
                 return File.query.get(result.id)
             return None
     
-    def increment_executed_count(self):
-        """
-        [4-2.5] 增加已执行文件计数
-        每次文件执行完成后调用
-        """
-        self.executed_files_count += 1
-        self.updated_at = datetime.utcnow()
+    # def increment_executed_count(self):
+    #     """
+    #     [4-2.5] 增加已执行文件计数
+    #     每次文件执行完成后调用
+    #     """
+    #     self.executed_files_count += 1
+    #     self.updated_at = datetime.utcnow()
         
-        # 检查是否所有文件都已执行完成
-        if self.executed_files_count >= self.total_files_count:
-            self.complete_task()
-        else:
-            db.session.commit()
+    #     # 检查是否所有文件都已执行完成
+    #     if self.executed_files_count >= self.total_files_count:
+    #         self.complete_task()
+    #     else:
+    #         db.session.commit()
     
-    def get_progress_percentage(self):
-        """
-        [4-1.5] 获取任务执行进度百分比
-        用于前端显示进度条
-        """
-        if self.total_files_count == 0:
-            return 0
-        return round((self.executed_files_count / self.total_files_count) * 100, 2)
+    # def get_progress_percentage(self):
+    #     """
+    #     [4-1.5] 获取任务执行进度百分比
+    #     用于前端显示进度条
+    #     """
+    #     if self.total_files_count == 0:
+    #         return 0
+    #     return round((self.executed_files_count / self.total_files_count) * 100, 2)
     
     def get_task_info(self):
         """
@@ -216,9 +216,9 @@ class Task(db.Model):
             'daily_start_time': self.daily_start_time.strftime('%H:%M') if self.daily_start_time else None,
             'daily_execution_count': self.daily_execution_count,
             'status': self.status,
-            'progress': self.get_progress_percentage(),
-            'executed_files': self.executed_files_count,
-            'total_files': self.total_files_count,
+            # 'progress': self.get_progress_percentage(),
+            # 'executed_files': self.executed_files_count,
+            # 'total_files': self.total_files_count,
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S')
         }
     
