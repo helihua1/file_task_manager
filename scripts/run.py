@@ -83,7 +83,7 @@ def run_app():
         port=port,
         debug=debug,
         use_reloader=False
-        # thread=True
+        # thread=True   #socketio已有重复功能
     )
         
 

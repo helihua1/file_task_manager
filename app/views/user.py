@@ -356,6 +356,7 @@ def create_task():
         
         # 新增字段
         source_folder = request.form.get('source_folder')
+        backup_folders_list = request.form.getlist('backup_folders')  # 获取备用文件夹列表
         daily_start_time_str = request.form.get('daily_start_time')
         daily_execution_count = request.form.get('daily_execution_count', type=int, default=1)
         
@@ -458,7 +459,13 @@ AND (file_path LIKE :path1 OR file_path LIKE :path2)
                                      filter_name=filter_name)
             
             # [3-2.4] 创建任务记录
+            import json
             target_url = ','.join(target_urls)  # 用逗号分隔存储多个URL
+            
+            # 过滤备用文件夹：去除与主文件夹相同的文件夹
+            filtered_backup_folders = [f for f in backup_folders_list if f != source_folder]
+            backup_folders_json = json.dumps(filtered_backup_folders) if filtered_backup_folders else None
+            
             task = Task(
                 user_id=current_user.id,
                 task_name=task_name,
@@ -468,6 +475,7 @@ AND (file_path LIKE :path1 OR file_path LIKE :path2)
                 start_time=start_time,
                 end_time=end_time,
                 source_folder=source_folder,
+                backup_folders=backup_folders_json,
                 daily_start_time=daily_start_time,
                 daily_execution_count=daily_execution_count,
                 # total_files_count=pending_files_count

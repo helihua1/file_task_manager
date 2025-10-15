@@ -71,6 +71,16 @@ def create_app(config_name=None):
     app.register_blueprint(user)
     app.register_blueprint(admin)
     
+    # [自定义Jinja2过滤器]
+    @app.template_filter('from_json')
+    def from_json_filter(value):
+        """JSON字符串转Python对象"""
+        import json
+        try:
+            return json.loads(value) if value else []
+        except:
+            return []
+    
     # [主页路由]
     @app.route('/')
     def index():

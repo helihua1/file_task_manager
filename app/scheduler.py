@@ -203,9 +203,11 @@ class TaskScheduler:
         """
         [4-2.3.2] 原子性获取下一个文件
         使用数据库锁和事务确保文件不会被重复分配
+        优先从主文件夹获取，不足时从备用文件夹获取
         """
         from app.models.file import File
         import os
+        import json
 
         # 获取数据库会话
         def get_session_local():
@@ -225,29 +227,41 @@ class TaskScheduler:
                 with dbsession.begin():
                     # 使用SELECT FOR UPDATE锁定文件记录
                     if task.source_folder:
-                        linux_pattern = f'%{os.sep}{task.source_folder}{os.sep}%'
-                        windows_pattern = f'%\\\\{task.source_folder}\\\\%'
+                        # 构建文件夹列表：主文件夹 + 备用文件夹
+                        folders_to_search = [task.source_folder]
+                        if task.backup_folders:
+                            try:
+                                backup_list = json.loads(task.backup_folders)
+                                folders_to_search.extend(backup_list)
+                            except:
+                                pass
+                        
+                        # 构建SQL的LIKE条件
+                        like_conditions = []
+                        params = {'user_id': task.user_id}
+                        
+                        for idx, folder in enumerate(folders_to_search):
+                            linux_key = f'linux_pattern_{idx}'
+                            windows_key = f'windows_pattern_{idx}'
+                            params[linux_key] = f'%{os.sep}{folder}{os.sep}%'
+                            params[windows_key] = f'%\\\\{folder}\\\\%'
+                            like_conditions.append(f'(file_path LIKE :{linux_key} OR file_path LIKE :{windows_key})')
+                        
+                        where_clause = ' OR '.join(like_conditions)
 
                         # FOR UPDATE是 行级锁
-                        sql = """
+                        sql = f"""
                         SELECT * FROM files 
                         WHERE user_id = :user_id 
                         AND is_executed = 0 
                         AND is_executing = 0
-                        AND (file_path LIKE :linux_pattern OR file_path LIKE :windows_pattern)
+                        AND ({where_clause})
                         ORDER BY id ASC 
                         LIMIT 1
                         FOR UPDATE
                         """
                         
-                        result = dbsession.execute(
-                            db.text(sql), 
-                            {
-                                'user_id': task.user_id,
-                                'linux_pattern': linux_pattern,
-                                'windows_pattern': windows_pattern
-                            }
-                        ).fetchone()
+                        result = dbsession.execute(db.text(sql), params).fetchone()
 
                     if result:
                         file_id = result.id
@@ -428,7 +442,7 @@ class TaskScheduler:
                                 )
                                 
                                 logger.error(f"文件 {file_obj.original_filename} 上传到 {root_url} 失败: {status_code}")
-
+                        test.refresh_all(upload_date)
 
                 
                 except Exception as e:

@@ -145,7 +145,7 @@
                         </div>
                     </div>
                     
-                    <!-- 新增字段 -->
+              
                     <div class="row">
                         <div class="col-md-6">
                             <div class="mb-3">
@@ -156,7 +156,26 @@
                                     <option value="{{ folder }}">{{ folder }}</option>
                                     {% endfor %}
                                 </select>
-                                <div class="form-text">选择要执行的文件所在的文件夹</div>
+                                <div class="form-text">选择要执行的文件所在的主文件夹</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">备用文件夹</label>
+                                <div class="border rounded p-3" style="max-height: 200px; overflow-y: auto;">
+                                    {% if user_folders %}
+                                        {% for folder in user_folders %}
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" name="backup_folders" value="{{ folder }}" id="backup_{{ loop.index }}">
+                                            <label class="form-check-label" for="backup_{{ loop.index }}">
+                                                {{ folder }}
+                                            </label>
+                                        </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <small class="text-muted">暂无可选文件夹</small>
+                                    {% endif %}
+                                </div>
+                                <div class="form-text">当主文件夹文件不足时，将从备用文件夹中获取文件</div>
                             </div>
                         </div>
                         <div class="col-md-6">

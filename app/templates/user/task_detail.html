@@ -70,8 +70,24 @@
                                 <td class="fw-bold text-muted">源文件夹:</td>
                                 <td>
                                     <span class="badge bg-info">
-                                        <i class="fas fa-folder me-1"></i>{{ task.source_folder or '根目录' }}
+                                        <i class="fas fa-folder me-1"></i>{{ task.source_folder}}
                                     </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="fw-bold text-muted">备用文件夹:</td>
+                                <td>
+                                    {% if task.backup_folders %}
+                                    <!-- 调用app中的init.py 的from_json过滤器 -->
+                                        {% set backup_list = task.backup_folders|from_json %}
+                                        {% for folder in backup_list %}
+                                        <span class="badge bg-secondary me-1">
+                                            <i class="fas fa-folder me-1"></i>{{ folder }}
+                                        </span>
+                                        {% endfor %}
+                                    {% else %}
+                                        <span class="text-muted">无</span>
+                                    {% endif %}
                                 </td>
                             </tr>
                         </table>

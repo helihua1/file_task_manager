@@ -26,6 +26,7 @@ class Task(db.Model):
     
     # [1-3.1.3] 新增字段 - 任务配置
     source_folder = db.Column(db.String(200), nullable=True, comment='源文件夹名称')
+    backup_folders = db.Column(db.Text, nullable=True, comment='备用文件夹列表(JSON格式)')
     daily_start_time = db.Column(db.Time, nullable=True, comment='每日开始执行时间')
     daily_execution_count = db.Column(db.Integer, default=1, comment='每个网站每日执行数量')
     
@@ -45,7 +46,7 @@ class Task(db.Model):
     
     def __init__(self, user_id, task_name, target_url, execution_method, 
                  interval_seconds, start_time, end_time=None, source_folder=None,
-                 daily_start_time=None, daily_execution_count=1):
+                 backup_folders=None, daily_start_time=None, daily_execution_count=1):
         """
         [1-3.1.7] 任务对象初始化
         """
@@ -57,6 +58,7 @@ class Task(db.Model):
         self.start_time = start_time
         self.end_time = end_time
         self.source_folder = source_folder
+        self.backup_folders = backup_folders
         self.daily_start_time = daily_start_time
         self.daily_execution_count = daily_execution_count
         self.update_file_count()
@@ -64,23 +66,37 @@ class Task(db.Model):
     def update_file_count(self):
         """
         [3-1.4] 更新任务关联的文件数量
-        创建任务时计算用户未执行的文件总数
+        创建任务时计算用户未执行的文件总数（包含主文件夹和备用文件夹）
         """
         from .file import File
         import os
+        import json
+        
         query = File.query.filter_by(
             user_id=self.user_id, 
             is_executed=False
         )
         
-        # 如果指定了源文件夹，只计算该文件夹下的文件
+        # 如果指定了源文件夹，计算该文件夹及备用文件夹的文件
         if self.source_folder:
-            query = query.filter(
-                db.or_(
-                    File.file_path.like(f'%{os.sep}{self.source_folder}{os.sep}%'),  # Linux/Mac路径
-                    File.file_path.like(f'%\\{self.source_folder}\\%')  # Windows路径
-                )
-            )
+            folders = [self.source_folder]
+            
+            # 添加备用文件夹
+            if self.backup_folders:
+                try:
+                    backup_list = json.loads(self.backup_folders)
+                    folders.extend(backup_list)
+                except:
+                    pass
+            
+            # 构建多个文件夹的OR条件
+            folder_conditions = []
+            for folder in folders:
+                folder_conditions.append(File.file_path.like(f'%{os.sep}{folder}{os.sep}%'))
+                folder_conditions.append(File.file_path.like(f'%\\{folder}\\%'))
+            
+            if folder_conditions:
+                query = query.filter(db.or_(*folder_conditions))
         
         self.total_files_count = query.count()
         db.session.commit()
