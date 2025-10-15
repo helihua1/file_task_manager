@@ -314,6 +314,68 @@ def delete_file(file_id):
     
     return redirect(url_for('user.file_list'))
 
+@user.route('/files/delete_executed', methods=['POST'])
+@login_required
+def delete_executed_files():
+    """
+    [2-5] 删除所有已执行文件
+    删除数据库中当前用户所有已执行文件的记录，并删除所有executed文件夹中的物理文件
+    """
+    try:
+        deleted_count = 0
+        file_count = 0
+        
+        # 1. 删除数据库中所有已执行的文件记录
+        executed_files = File.query.filter_by(
+            user_id=current_user.id,
+            is_executed=True
+        ).all()
+        
+        for file_record in executed_files:
+            try:
+                # 删除物理文件（如果存在）
+                if os.path.exists(file_record.file_path):
+                    os.remove(file_record.file_path)
+                    file_count += 1
+                
+                # 删除数据库记录
+                db.session.delete(file_record)
+                deleted_count += 1
+            except Exception as e:
+                current_app.logger.error(f"删除文件失败: {file_record.file_path}, 错误: {str(e)}")
+        
+        # 2. 遍历用户目录，删除所有executed文件夹中的文件
+        user_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], str(current_user.id))
+        if os.path.exists(user_dir):
+            # 遍历用户目录下的所有文件夹
+            for item in os.listdir(user_dir):
+                item_path = os.path.join(user_dir, item)
+                if os.path.isdir(item_path):
+                    # 检查是否有executed子文件夹
+                    executed_folder = os.path.join(item_path, 'executed')
+                    if os.path.exists(executed_folder) and os.path.isdir(executed_folder):
+                        # 删除executed文件夹中的所有文件
+                        for filename in os.listdir(executed_folder):
+                            file_path = os.path.join(executed_folder, filename)
+                            try:
+                                if os.path.isfile(file_path):
+                                    os.remove(file_path)
+                                    file_count += 1
+                            except Exception as e:
+                                current_app.logger.error(f"删除物理文件失败: {file_path}, 错误: {str(e)}")
+        
+        # 提交数据库事务
+        db.session.commit()
+        
+        flash(f'成功删除 {deleted_count} 条数据库记录和 {file_count} 个物理文件', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'删除已执行文件失败: {str(e)}', 'error')
+        current_app.logger.error(f"删除已执行文件失败: {str(e)}")
+    
+    return redirect(url_for('user.file_list'))
+
 @user.route('/tasks')
 @login_required
 def task_list():
@@ -567,6 +629,37 @@ def get_task_stats(task_id):
         'data': url_stats
     })
 
+@user.route('/tasks/<int:task_id>/delete_history', methods=['POST'])
+@login_required
+def delete_task_history(task_id):
+    """
+    [3-3.4] 删除任务的所有历史执行记录
+    删除指定任务在 task_executions 表中的所有数据
+    """
+    task = Task.query.filter_by(id=task_id, user_id=current_user.id).first()
+    if not task:
+        return jsonify({'success': False, 'message': '任务不存在'}), 404
+    
+    try:
+        # 删除该任务的所有执行历史记录
+        deleted_count = TaskExecution.query.filter_by(task_id=task_id).delete()
+        db.session.commit()
+        
+        current_app.logger.info(f"用户 {current_user.id} 删除了任务 {task_id} 的 {deleted_count} 条历史记录")
+        
+        return jsonify({
+            'success': True,
+            'message': f'成功删除 {deleted_count} 条历史记录',
+            'deleted_count': deleted_count
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"删除任务历史记录失败: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'删除失败: {str(e)}'
+        }), 500
+
 @user.route('/tasks/<int:task_id>/start', methods=['POST'])
 @login_required
 def start_task(task_id):
@@ -588,7 +681,7 @@ def start_task(task_id):
         task_scheduler.add_task_job(task)
 
     
-    return redirect(url_for('user.task_detail', task_id=task_id))
+    return redirect(url_for('user.task_list'))
 
 @user.route('/tasks/<int:task_id>/pause', methods=['POST'])
 @login_required
@@ -608,7 +701,37 @@ def pause_task(task_id):
     else:
         flash('只能暂停正在运行的任务', 'warning')
     
-    return redirect(url_for('user.task_detail', task_id=task_id))
+    return redirect(url_for('user.task_list'))
+
+@user.route('/tasks/<int:task_id>/delete', methods=['POST'])
+@login_required
+def delete_task(task_id):
+    """
+    [3-6] 删除任务
+    删除tasks表中的任务记录，并自动删除task_executions中相关的执行记录
+    """
+    task = Task.query.filter_by(id=task_id, user_id=current_user.id).first()
+    if not task:
+        flash('任务不存在', 'error')
+        return redirect(url_for('user.task_list'))
+    
+    task_name = task.task_name
+    
+    try:
+        # 如果任务正在运行，先从调度器中移除
+        if task.status == 'running':
+            task_scheduler.remove_task_job(task_id)
+        
+        # 删除任务（由于cascade='all, delete-orphan'，相关的task_executions会自动删除）
+        db.session.delete(task)
+        db.session.commit()
+        
+        flash(f'任务 "{task_name}" 及其所有执行记录已成功删除', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'删除任务失败: {str(e)}', 'error')
+    
+    return redirect(url_for('user.task_list'))
 
 @user.route('/api/task_status/<int:task_id>')
 @login_required

@@ -28,11 +28,11 @@ class File(db.Model):
     is_executing = db.Column(db.Boolean, default=False, comment='是否正在执行')
     executed_at = db.Column(db.DateTime, comment='执行完成时间')
     
-    # [1-2.1.3] 关联关系
-    task_executions = db.relationship('TaskExecution', backref='file', lazy='dynamic',
-                                    cascade='all, delete-orphan'
-                                      )
-                                      # , comment='文件执行记录')
+    # [1-2.1.3] 关联关系（已移除，避免级联删除）
+    # task_executions = db.relationship('TaskExecution', backref='file', lazy='dynamic',
+    #                                 cascade='all, delete-orphan'
+    #                                   )
+    # 注释说明：移除关联关系，保留执行历史记录独立性
     
     def __init__(self, user_id, filename, original_filename, file_path, file_size, folder=None):
         """

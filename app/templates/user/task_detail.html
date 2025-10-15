@@ -31,6 +31,13 @@
                     </button>
                 </form>
             {% endif %}
+
+            <!-- 删除任务按钮 -->
+            <form method="post" action="{{ url_for('user.delete_task', task_id=task.id) }}" class="d-inline" onsubmit="return confirm('确认删除任务？此操作不可恢复！');">
+                <button class="btn btn-sm btn-danger" type="submit">
+                    <i class="fas fa-trash"></i> 删除任务
+                </button>
+            </form>
         </div>
     </div>
 </div>
@@ -195,6 +202,10 @@
                     data-bs-toggle="collapse" data-bs-target="#statsCollapse" 
                     aria-expanded="false" aria-controls="statsCollapse">
                 <i class="fas fa-eye me-1"></i>统计历史信息
+            </button>
+            <button id="deleteHistoryBtn" class="btn btn-sm btn-danger ms-2" type="button" 
+                    data-task-id="{{ task.id }}">
+                <i class="fas fa-trash me-1"></i>删除历史信息
             </button>
         </h5>
     </div>
@@ -501,6 +512,46 @@ function escapeHtml(text) {
     };
     return String(text).replace(/[&<>"']/g, m => map[m]);
 }
+
+// ====== 删除任务历史记录 ======
+document.getElementById('deleteHistoryBtn').addEventListener('click', function() {
+    if (!confirm('确认删除该任务的所有历史执行记录吗？此操作不可恢复！')) {
+        return;
+    }
+    
+    // 显示加载状态
+    const deleteBtn = this;
+    const originalHtml = deleteBtn.innerHTML;
+    deleteBtn.disabled = true;
+    deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>删除中...';
+    
+    // 发送删除请求
+    fetch('{{ url_for("user.delete_task_history", task_id=task.id) }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // 删除成功，刷新页面
+            alert('历史记录删除成功！');
+            location.reload();
+        } else {
+            // 删除失败
+            alert('删除失败: ' + (data.message || '未知错误'));
+            deleteBtn.disabled = false;
+            deleteBtn.innerHTML = originalHtml;
+        }
+    })
+    .catch(error => {
+        console.error('删除历史记录失败:', error);
+        alert('删除失败，请稍后重试');
+        deleteBtn.disabled = false;
+        deleteBtn.innerHTML = originalHtml;
+    });
+});
 
 </script>
 {% endblock %} 

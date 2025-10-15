@@ -17,7 +17,7 @@ class TaskExecution(db.Model):
     # [1-4.1.1] 执行记录基本字段
     id = db.Column(db.Integer, primary_key=True, comment='执行记录ID主键')
     task_id = db.Column(db.Integer, db.ForeignKey('tasks.id'), nullable=False, comment='所属任务ID')
-    file_id = db.Column(db.Integer, db.ForeignKey('files.id'), nullable=False, comment='执行的文件ID')
+    file_id = db.Column(db.Integer, nullable=False, comment='执行的文件ID（历史记录，无外键约束）')
     execution_time = db.Column(db.DateTime, default=datetime.utcnow, comment='执行时间')
     
     # [1-4.1.2] 执行结果字段
