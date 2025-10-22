@@ -46,6 +46,9 @@ def create_app(config_name=None):
     app.config.from_object(config[config_name])
     config[config_name].init_app(app)
     
+    # [确保上传目录存在]
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    
     # [初始化扩展]
     db.init_app(app)
     socketio.init_app(app, cors_allowed_origins="*")
