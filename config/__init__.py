@@ -38,7 +38,7 @@ class Config:
     
     # [任务调度配置]
     SCHEDULER_API_ENABLED = True
-    SCHEDULER_TIMEZONE = 'UTC'
+    SCHEDULER_TIMEZONE = 'Asia/Shanghai'
     
     # [WebSocket配置]
     SOCKETIO_ASYNC_MODE = 'threading'

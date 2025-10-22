@@ -6,6 +6,7 @@ import requests
 import logging
 import threading
 import time
+import pytz
 from datetime import datetime, time as dt_time, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.date import DateTrigger
@@ -18,8 +19,11 @@ from app.models.url_context import UrlUpdateContext
 from app import db, socketio
 import test
 from app.models.url_context import url_update_context
+
+import logging
+
 # [4] 任务调度器初始化
-scheduler = BackgroundScheduler()
+scheduler = BackgroundScheduler(timezone='Asia/Shanghai')
 logger = logging.getLogger(__name__)
 
 # 全局session锁，用于管理同一网站的并发访问
@@ -54,7 +58,7 @@ class TaskScheduler:
         
         # [4-1.3] 配置调度器
         self.scheduler.configure(
-            timezone=app.config.get('SCHEDULER_TIMEZONE', 'UTC'),
+            timezone=app.config.get('SCHEDULER_TIMEZONE', 'Asia/Shanghai'),
             job_defaults={
                 'coalesce': False,
                 'max_instances': 50,  # 增加最大实例数
@@ -93,12 +97,24 @@ class TaskScheduler:
                 hour=task.daily_start_time.hour,
                 minute=task.daily_start_time.minute,
                 start_date=task.start_time,
-                end_date=task.end_time
+                end_date=task.end_time,
+                timezone=self.scheduler.timezone
             )
         else:
 
-            # 2秒后执行一次
-            trigger = DateTrigger(run_date=datetime.now() + timedelta(seconds=2))
+            #  # 2秒后执行一次
+            # trigger = DateTrigger(run_date=datetime.now() + timedelta(seconds=2))
+
+            
+            # 2秒后执行一次，使用调度器的时区
+            # 获取调度器时区
+            scheduler_tz = pytz.timezone(str(self.scheduler.timezone))
+            # 创建带时区的当前时间
+            now_with_tz = datetime.now(scheduler_tz)
+            # 计算执行时间
+            run_time = now_with_tz + timedelta(seconds=2)
+            
+            trigger = DateTrigger(run_date=run_time, timezone=scheduler_tz)
             
 
         # [4-1.9] 添加新的定时job
@@ -110,8 +126,17 @@ class TaskScheduler:
             name=f"Task: {task.task_name}",
             replace_existing=True
         )
-        
-        logger.info(f"任务 {task.task_name} (ID: {task.id}) 已添加到调度器")
+
+        #测试
+        tz = scheduler.timezone
+        print("系统当前时间：", datetime.now())
+        print("Scheduler 当前时间：", datetime.now(tz))
+
+        self.scheduler.print_jobs()
+
+        logging.basicConfig()
+        logging.getLogger('apscheduler').setLevel(logging.DEBUG)
+
         return True
     
     def remove_task_job(self, task_id):
@@ -137,6 +162,13 @@ class TaskScheduler:
         并发控制：受 max_instances: 10 限制
         职责：获取文件列表，调用文件上传逻辑
         '''
+
+        # 测试
+        time.sleep(3)
+        print('任务开始执行')
+        return
+        
+        
         with self.app.app_context():
             try:
                 # [4-2.1] 获取任务信息

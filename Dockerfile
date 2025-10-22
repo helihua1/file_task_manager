@@ -30,6 +30,10 @@ RUN mkdir -p /var/zbw_flask_files/uploads && \
     mkdir -p /var/zbw_flask_files/logs && \
     chmod -R 755 /var/zbw_flask_files
 
+# 设置时区为东八区
+ENV TZ=Asia/Shanghai
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
 # 暴露端口
 EXPOSE 5000
 
