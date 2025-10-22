@@ -38,6 +38,7 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 EXPOSE 5000
 
 # 启动命令 - 使用gunicorn启动，workers=1，支持WebSocket
+# 不要使用--preload参数，否则会导致scheduler无法正常工作
 CMD ["gunicorn", \
      "--worker-class", "geventwebsocket.gunicorn.workers.GeventWebSocketWorker", \
      "--workers", "1", \
@@ -48,6 +49,5 @@ CMD ["gunicorn", \
      "--error-logfile", "/var/zbw_flask_files/logs/error.log", \
      "--log-level", "debug", \
      "--graceful-timeout", "30", \
-     "--preload", \
      "scripts.run_linux:app"]
 
