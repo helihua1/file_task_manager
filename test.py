@@ -263,7 +263,7 @@ def upload(session,zixun_page,base_url,menu_value,title,text,ifGBK=False):
     # 八，提交文章
     post_url = base_url + "/ecmsinfo.php"
     r = session.post(post_url, data=post_data)
-    open_resp(r)
+    # open_resp(r)
     soup = BeautifulSoup(r.text, 'html.parser')
 
     # 方法1：直接搜索文本
@@ -446,7 +446,7 @@ def refresh_all(update_context):
  
                 # 访问URL
                 resp_refresh_all_content = session.get(full_url)
-                open_resp(resp_refresh_all_content)
+                # open_resp(resp_refresh_all_content)
                 
 
                 # ===============循环跳转，检验的时候用===================

@@ -163,10 +163,10 @@ class TaskScheduler:
         职责：获取文件列表，调用文件上传逻辑
         '''
 
-        # 测试
-        time.sleep(3)
-        print('任务开始执行')
-        return
+        # # 测试
+        # time.sleep(3)
+        # print('任务开始执行')
+        # return
         
         
         with self.app.app_context():
