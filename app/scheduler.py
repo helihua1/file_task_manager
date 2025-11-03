@@ -409,7 +409,7 @@ class TaskScheduler:
                                 
                                 
                                 # [4-5.3] 执行upload逻辑
-                                status_code,msg = test.upload(session, zixun_page, upload_date.base_url, menu_value, file_title, file_content,ifGBK)
+                                status_code,msg,newPage_url = test.upload(session, zixun_page, upload_date.base_url, menu_value, file_title, file_content,ifGBK)
                                 time.sleep(task.interval_seconds)
 
                                 # websocket 发送任务进度
@@ -456,7 +456,8 @@ class TaskScheduler:
                                         execute_url= root_url,
                                         url_menu_value=menu_value,
                                         url_menu_text=menu_text,
-                                        error_message= msg
+                                        error_message= msg,
+                                        newPage_url=newPage_url
                                     )
                                     dbsession.add(execution_record)
                                     
@@ -475,12 +476,14 @@ class TaskScheduler:
                                 execution_record = TaskExecution(
                                     task_id=task.id,
                                     file_id=file_obj.id,
+                                    file_title = file_title,
                                     status='fails',
                                     response_data=status_code,
                                     execute_url=root_url,
                                     url_menu_value=menu_value,
                                     url_menu_text=menu_text,
-                                    error_message=msg
+                                    error_message=msg,
+                                    newPage_url=newPage_url
                                 )
                                 dbsession.add(execution_record)
                                 dbsession.commit()
