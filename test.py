@@ -63,7 +63,7 @@ def get_upload_writings_page_url(zixun_page,base_url,num ):
     """
     # 解析HTML获取JavaScript内容
     soup = BeautifulSoup(zixun_page.text, 'html.parser')
-    
+
     # 查找包含 changeclass 函数的 script 标签
     script_tags = soup.find_all('script')
     
@@ -228,7 +228,6 @@ def upload(session,zixun_page,base_url,menu_value,title,text,ifGBK=False):
     upload_writing_page = session.get(upload_url)
     # open_resp(upload_writing_page)
 
-    # print(f'上传文件名:{title}')
     '''
     上传文章
     '''
@@ -270,12 +269,43 @@ def upload(session,zixun_page,base_url,menu_value,title,text,ifGBK=False):
     if soup.find(string=lambda text: text and "增加信息成功" in text):
         print("✅ 增加信息成功！")
         msg = '增加信息成功'
+
+        # 获取新增加的文章的url
+        newPage_url = get_newPage_url(session,base_url,upload_url,title,ifGBK)
+        print(f'新加入的页面的链接:{newPage_url}')
     else:
         print("❌ 没有增加信息成功！")
         msg = '可能异常'
+        newPage_url = ''
     # 返回状态码
-    return r.status_code,msg
+    return r.status_code,msg,newPage_url
 
+
+"""
+获取新增加的文章的url
+"""
+def get_newPage_url(session,base_url,upload_url,title,ifGBK):
+    #找到文件id
+    pattern = r'&ehash([^&]+)&enews'
+    match = re.search(pattern, upload_url)
+    ehash = 'ehash' + match.group(1)
+    ListAllInfo_url = urljoin(base_url + "/", "ListAllInfo.php?" + ehash)
+    ListAllInfo_page = session.get(ListAllInfo_url)
+    if ifGBK:
+        ListAllInfo_page = ListAllInfo_page.content.decode("gbk")
+    open_resp(ListAllInfo_page)
+    # 解析 HTML
+    soup = BeautifulSoup(ListAllInfo_page.text, "html.parser")
+    target = soup.find("a", attrs={"title": title})
+
+    if target:
+        href = target.get("href")
+        newPage_url = urljoin(base_url + "/", href)
+        print("找到链接：", newPage_url)
+        return newPage_url
+    else:
+        print("未找到新加入的页面的链接")
+        return "未找到新加入的页面的链接"
       
 
 
@@ -513,41 +543,41 @@ def refresh_all(update_context):
     else:
         print("未找到刷新所有信息内容页面按钮")
 
-if __name__ == '__main__':
-    class url_update_context:
-        def __init__(self,session,root_url,suffix,username,password):
-            self.session = session
-            self.suffix = suffix
-            self.root_url = root_url
-
-            self.base_url = urljoin(self.root_url, self.suffix)
-
-            self.username = username
-            self.password = password
-  
-    session = requests.Session()
-
-    username = "yh1"
-    password = "yh123456"
-
-    titles_and_texts = {"测试title122222": "测试text1222222", 
-    "测试title333333": "测试text3333333",
-    "测试title4444444": "测试text4444444"
-    }
-    sleeptime = 3
-    menu_value = "1"
-    suffix = "e/AcoyKcy7s9/"
-    root_url = "http://zx1.bh308.com"
-
-
-    upload_date = url_update_context(session,root_url,suffix,username,password)
-    
-   
-
-    zixun_page = upload_before(upload_date)
-    for title,text in titles_and_texts.items():
-        upload(session,zixun_page,upload_date.base_url,menu_value,title,text)
-        time.sleep(3)
-
-
-
+# if __name__ == '__main__':
+#     class url_update_context:
+#         def __init__(self,session,root_url,suffix,username,password):
+#             self.session = session
+#             self.suffix = suffix
+#             self.root_url = root_url
+#
+#             self.base_url = urljoin(self.root_url, self.suffix)
+#
+#             self.username = username
+#             self.password = password
+#
+#     session = requests.Session()
+#
+#     username = "yh1"
+#     password = "yh123456"
+#
+#     titles_and_texts = {"测试title122222": "测试text1222222",
+#     "测试title333333": "测试text3333333",
+#     "测试title4444444": "测试text4444444"
+#     }
+#     sleeptime = 3
+#     menu_value = "1"
+#     suffix = "e/AcoyKcy7s9/"
+#     root_url = "http://zx1.bh308.com"
+#
+#
+#     upload_date = url_update_context(session,root_url,suffix,username,password)
+#
+#
+#
+#     zixun_page = upload_before(upload_date)
+#     for title,text in titles_and_texts.items():
+#         upload(session,zixun_page,upload_date.base_url,menu_value,title,text)
+#         time.sleep(3)
+#
+#
+#
