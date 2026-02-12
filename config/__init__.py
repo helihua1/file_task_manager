@@ -25,15 +25,20 @@ class Config:
     SQLALCHEMY_DATABASE_URI = f'mysql+pymysql://{MYSQL_USER}:{MYSQL_PASSWORD}@{MYSQL_HOST}:{MYSQL_PORT}/{MYSQL_DATABASE}'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     print(SQLALCHEMY_DATABASE_URI)
+    
     # [文件上传配置]
-    #UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'app', 'static', 'uploads')
-    UPLOAD_FOLDER = r'D:\python\auto_upload_claude\file_task_manager\file_task_manager\上传文件'
+    # 根据操作系统选择上传文件夹路径
+    if os.name == 'nt':  # Windows
+        UPLOAD_FOLDER = r'D:\python\auto_upload_claude\file_task_manager\file_task_manager\上传文件'
+    else:  # Linux/Unix
+        UPLOAD_FOLDER = '/var/zbw_flask_files/uploads'
+    
     MAX_CONTENT_LENGTH = 100 * 1024 * 1024  # 100MB
     ALLOWED_EXTENSIONS = {'txt'}
     
     # [任务调度配置]
     SCHEDULER_API_ENABLED = True
-    SCHEDULER_TIMEZONE = 'UTC'
+    SCHEDULER_TIMEZONE = 'Asia/Shanghai'
     
     # [WebSocket配置]
     SOCKETIO_ASYNC_MODE = 'threading'
@@ -71,7 +76,17 @@ class ProductionConfig(Config):
         import logging
         from logging.handlers import RotatingFileHandler
         
-        file_handler = RotatingFileHandler('logs/app.log', maxBytes=10240000, backupCount=10)
+        # 根据操作系统选择日志路径
+        if os.name == 'nt':  # Windows
+            log_dir = 'logs'
+        else:  # Linux/Unix
+            log_dir = '/var/zbw_flask_files/logs'
+        
+        # 确保日志目录存在
+        os.makedirs(log_dir, exist_ok=True)
+        
+        log_file = os.path.join(log_dir, 'app.log')
+        file_handler = RotatingFileHandler(log_file, maxBytes=10240000, backupCount=10)
         file_handler.setFormatter(logging.Formatter(
             '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
         ))

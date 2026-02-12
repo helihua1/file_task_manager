@@ -29,9 +29,10 @@ class TaskExecution(db.Model):
     execute_url = db.Column(db.String(500), comment='执行的目标URL')
     url_menu_value = db.Column(db.String(100), comment='URL栏目值')
     url_menu_text = db.Column(db.String(200), comment='URL栏目文本')
+    newPage_url = db.Column(db.String(500), comment='上传后生成的新页面URL')
     
     def __init__(self, task_id, file_id, status, error_message=None, response_data=None, 
-                 execute_url=None, url_menu_value=None, url_menu_text=None):
+                 execute_url=None, url_menu_value=None, url_menu_text=None, newPage_url=None):
         """
         [1-4.1.4] 执行记录对象初始化
         """
@@ -43,6 +44,7 @@ class TaskExecution(db.Model):
         self.execute_url = execute_url
         self.url_menu_value = url_menu_value
         self.url_menu_text = url_menu_text
+        self.newPage_url = newPage_url
 
     @classmethod
     def get_url_execution_stats(cls, task_id, url_configs):
@@ -129,7 +131,8 @@ class TaskExecution(db.Model):
             'response_data': self.response_data,
             'execute_url': self.execute_url,
             'url_menu_value': self.url_menu_value,
-            'url_menu_text': self.url_menu_text
+            'url_menu_text': self.url_menu_text,
+            'newPage_url': self.newPage_url
         }
 
     @classmethod

@@ -18,9 +18,8 @@ if __name__ == '__main__':
 
 
 
-    username = ""
-    password = ""
-
+    username = "yh1"
+    password = "yh123456"
     titles_and_texts = {
         # "测试title122222": "测试text1222222",
         #                 "测试title333333": "测试text3333333",
@@ -28,16 +27,17 @@ if __name__ == '__main__':
                         }
     sleeptime = 3
     menu_value = "1"
-    suffix = ""
-    root_url = ""
+    suffix = "e/AcoyKcy7s9/"
+    root_url = "http://zx1.bh308.com"
     
     session = requests.Session()
     upload_date = url_update_context(session, root_url, suffix, username, password)
+    # 如果不加ifgbk，就变成只用了一个变量 zixun_page 来接收返回值，所以 zixun_page 实际上是一个 tuple (zixun_page对象, ifGBK)，而不是单个的 response 对象。
+    zixun_page,ifGBK = test.upload_before(upload_date)
 
-    zixun_page = test.upload_before(upload_date)
+    # for title, text in titles_and_texts.items():
+    test.upload(session, zixun_page, upload_date.base_url, menu_value, "测试title88888", "测试text9999",False)
 
-    for title, text in titles_and_texts.items():
-        test.upload(session, zixun_page, upload_date.base_url, menu_value, title, text,True)
         # time.sleep(3)
     # test.get_menu(upload_date)
 
